@@ -6,7 +6,7 @@ def readTxt(fname):
     """
     Reads in text file (ideally of filenames) and returns list of rows (ideally a list of the filenames)
 
-    Returns: len(list), list
+    Returns: list
     """    
     list = []
     
@@ -14,12 +14,12 @@ def readTxt(fname):
         for row in fobj:
             list.append(row.rstrip('\n'))
     
-    return len(list), list
+    return list
     
 
 def readMap(mapfile_name):
     """
-    Reads in CAR map from text file.
+    Reads in CAR map whose filename is in a text file.
 
     Args:
         mapfile_name (string): text file with the full path of the map file

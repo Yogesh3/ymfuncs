@@ -205,6 +205,9 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
         Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string.
     """
 
+    if spectra.lower() not in ['both', 'cross', 'auto']:
+        raise ValueError("Your 'spectra' variable is incorrect")
+
     #Parameters for Cosmology Planck 14, https://arxiv.org/pdf/1303.5076.pdf, best-fit
     p14_dict={}
     p14_dict['h'] = 0.6711      
@@ -255,7 +258,7 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
     p_hm_dict['L_sat_epsabs'] = 1e-40 #1.e-40
     p_hm_dict['L_sat_epsrel'] = 1e-3#1e-10
     # Multipole array
-    p_hm_dict['dell'] = 1
+    p_hm_dict['dlogell'] = 1
     p_hm_dict['ell_max'] = 3968.0
     p_hm_dict['ell_min'] = 2.0
 
@@ -387,7 +390,10 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
     Cls_dict = {}
     #Cycle Through Spectra
     for spec_key, Dl_dict in Dl_spectra.items():
-        freq_list = sort_str_list( list(Dl_dict.keys()) )
+        if spec_key.lower() in ['cross', 'both']:
+            freq_list = sort_str_list( list(Dl_dict.keys()) )
+        else:
+            freq_list = Dl_dict.keys()
         Cls_dict[spec_key] = {}
 
         #Cycle through Frequencies

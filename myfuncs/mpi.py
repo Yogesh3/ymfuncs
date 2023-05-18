@@ -1,5 +1,51 @@
 import numpy as np
 import sys
+from mpi4py import MPI 
+
+def autoMPI(total_tasks, level='basic'):
+    """Automate MPI distribution.
+
+    Parameters
+    ----------
+    total_tasks : list
+        All of the tasks to split among the processes
+    level : str, optional
+        Describes how much MPI information you want returned, by default 'basic'. Options are 'basic', 'lazy', 'advanced'
+
+    Returns
+    -------
+    list
+        if level == 'basic':
+            returns [comm, current_rank, subset_of_tasks_for_that_rank]
+        elif level == 'lazy':
+            returns everything that 'basic' returns, plus [Nranks, tasks_per_rank]
+        elif level == 'advanced':
+            returns everything that 'lazy' returns, plus [displacement_indices]
+
+    Raises
+    ------
+    ValueError
+        Valid 'level' options are ['basic', 'lazy', 'advanced']
+    """
+    #Level Options
+    level_options['basic'] = 3
+    level_options['lazy'] = level_options['basic'] + 2
+    level_options['lazy'] = level_options['lazy'] + 1
+    if level not in level_options.keys():
+        raise ValueError("'level' options are ['basic', 'lazy', 'advanced']")
+
+    #Basics
+    comm = MPI.COMM_WORLD
+    current_rank = comm.Get_rank()
+    Nranks = comm.Get_size()
+
+    #Break Up Work
+    tasks_per_rank, displacements = calcMPI(len(total_tasks), Nranks)
+    subset = total_tasks[displacements[current_rank] : displacements[current_rank+1]]
+
+    return_list = [comm, current_rank, subset, Nranks, tasks_per_rank, displacements]
+
+    return return_list[:level_options[level]]
 
 
 def calcMPI(Nsims, Nprocs):
@@ -32,7 +78,7 @@ def calcMPI(Nsims, Nprocs):
 
 
 def mpiReduce(comm, current_rank, array, root_rank=0):
-    """Just a wrapper for MPI Reduce.
+    """Just a wrapper for MPI Reduce, but ignores NaN's.
 
     Parameters
     ----------
@@ -60,7 +106,7 @@ def mpiReduce(comm, current_rank, array, root_rank=0):
     comm.Gather(array, recbuf, root= root_rank)
 
     if current_rank == root_rank:
-        return np.sum(recbuf, axis=0)
+        return np.nansum(recbuf, axis=0)
     else:
         return None
 
@@ -79,7 +125,7 @@ def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time):
     simnum : int
         Current counter value for the current task of the current rank
     rank_Nsims : int
-        Total number of processes
+        Total number of tasks on current rank
     tot_time : float
         Running total time
 
