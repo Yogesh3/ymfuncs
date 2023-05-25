@@ -183,6 +183,42 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
 #     else:
 #         output = np.sum(mask1**n1 * mask2**n2 * pmap) /np.pi / 4.
 #     return output
+def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= False):
+    """
+    Copied from orphics, but generalized to take 2 masks instead of only one. Both
+    masks must be on the same map footprint (only matters for CAR).
+
+    Approximate correction to an n-point function for the loss of power
+    due to the application of a mask.
+
+    For an n-point function using SHTs, this is the ratio of 
+    area weighted by the nth power of the mask to the full sky area 4 pi.
+    This simplifies to mean(mask**n) for equal area pixelizations like
+    healpix. For SHTs on CAR, it is sum(mask**n * pixel_area_map) / 4pi.
+    When using FFTs, it is the area weighted by the nth power normalized
+    to the area of the map. This also simplifies to mean(mask**n)
+    for equal area pixels. For CAR, it is sum(mask**n * pixel_area_map) 
+    / sum(pixel_area_map).
+
+    If not, it does an expensive calculation of the map of pixel areas based on mask1.
+    If this has been pre-calculated, it can be provided as the pmap argument.
+    
+    """
+    assert mask.ndim==1 or mask.ndim==2
+
+    #Get Pixel Map
+    if pmap is None: 
+        if equal_area:
+            npix = mask1.size
+            pmap = 4*np.pi / npix if sht else enmap.area(mask1.shape,mask1.wcs) / npix
+        else:
+            pmap = omaps.psizemap(mask1.shape,mask1.wcs)
+
+    #Create Composite Mask
+    mask_tot = mask1**n1  if not mask2  else  mask1**n1 * mask2**n2 
+    
+    return np.sum(mask_tot * pmap) / np.pi/4.  if sht  else  np.sum(mask_tot * pmap) / np.sum(pmap)
+
 
 
 def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
@@ -264,7 +300,7 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
 
     #CIB Parameters
     p_CIB_dict = {}
-    p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
+    p_CIB_dict['Redshift_evolution_of_dust_temperature'] =  0.36
     p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
     p_CIB_dict['Emissivity index of sed'] = 1.75
     p_CIB_dict['Power law index of SED at high frequency'] = 1.7
