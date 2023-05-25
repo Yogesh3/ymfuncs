@@ -2,37 +2,61 @@ import matplotlib as mpl
 from matplotlib import pyplot as plt 
 from matplotlib_inline.backend_inline import set_matplotlib_formats
 set_matplotlib_formats('svg')
-from pixell import enplot
+from pixell import enplot, colorize
 import numpy as np
 
 
-def eshow(x,**kwargs): 
+def eshow(*plotslist, **user_kwargs): 
     ''' Wrapper to plot enmaps. Sets defaults for the map images and allows to combine maps.'''
         
     #Combine Multiple Maps into a Single Image?
-    if 'combine' in kwargs:
-        combineFlag = kwargs.pop('combine')
+    if 'combine' in user_kwargs.keys():
+        combineFlag = user_kwargs.pop('combine')
     else:
         combineFlag = False
 
     #Default Settings
-    if 'ticks' not in kwargs:
-        kwargs['ticks'] = 10
-    if 'downgrade' not in kwargs:
-        kwargs['downgrade'] = 10
-    if 'colorbar' not in kwargs:
-        kwargs['colorbar'] = True
+    default_kwargs = {}
+    default_kwargs['ticks'] = 10
+    default_kwargs['downgrade'] = 10
+    default_kwargs['colorbar'] = True
+    default_kwargs['mask'] = 0
+    total_kwargs = {**default_kwargs, **user_kwargs}
 
     #Create Plot(s)
-    plots = enplot.get_plots(x, **kwargs)
     if combineFlag:
-        plots = enplot.merge_plots(sum(plots))
+        #Later Maps Kwargs
+        laterplots_kwargs = {}
+        laterplots_kwargs['colorbar'] = False
+        laterplots_kwargs['no_image'] = True
+        laterplots_kwargs['contours'] = 0.1
+        laterplots_kwargs = {**total_kwargs, **laterplots_kwargs}
 
-    enplot.show(plots, method = "ipython")
+        # for plot, colorscheme in zip(plotslist, colorize.schemes.keys()):
+        #     total_kwargs = defau
+
+        #Get Plots
+        first_plot = enplot.get_plots(plotslist[0], **total_kwargs)
+        later_plots = enplot.get_plots(*plotslist[1:], **laterplots_kwargs)
+
+        #Merge Plots
+        all_plots = []
+        all_plots.append(first_plot)
+        all_plots.extend(later_plots)
+        out_plots = enplot.merge_plots(np.sum(all_plots, axis=0))
+
+    else:
+        out_plots = enplot.get_plots(*plotslist, **total_kwargs)
+
+    enplot.show(out_plots, method = "ipython")
+
+    return out_plots
+
 
 
 def getDefaultColors():
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
+
 
 
 def get_color_cycle(cmap, N=None, use_index="auto", iterFlag=False, vmin=0, vmax=1):

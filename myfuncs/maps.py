@@ -19,7 +19,7 @@ def alm2pixmap(alms, footprint_map):
     return pixmap
 
 
-def read_hp2pix(hp_map_fname, footprint_map, lmax, isMask=False):
+def read_hp2pix(hp_map_fname, footprint_map, lmax, isBoolMask=False):
     """
     DEPRECATED? See pixell?
     Read healpix map from filename as a CAR map.
@@ -32,8 +32,8 @@ def read_hp2pix(hp_map_fname, footprint_map, lmax, isMask=False):
         CAR map to project the healpix map onto
     lmax : int
         Healpy's lmax for the spherical harmonic transform
-    isMask : bool, optional
-        If it's a boolean mask, it doesn't change to a complex double', by default False
+    isBoolMask : bool, optional
+        If it's a boolean mask, it doesn't change to a complex double, by default False
 
     Returns
     -------
@@ -43,7 +43,7 @@ def read_hp2pix(hp_map_fname, footprint_map, lmax, isMask=False):
 
     hp_map = hp.read_map(hp_map_fname)
     alms = hp.sphtfunc.map2alm(hp_map, lmax = lmax)
-    if not isMask:
+    if not isBoolMask:
         alms = np.cdouble(alms)
     pix_map = alm2pixmap(alms, footprint_map)
 

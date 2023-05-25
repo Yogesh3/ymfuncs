@@ -2,38 +2,20 @@ import numpy as np
 import sys
 from mpi4py import MPI 
 
-def autoMPI(total_tasks, level='basic'):
-    """Automate MPI distribution.
+def autoMPI(total_tasks):
+    """
+    This is identical to orphics.mpi_distribute. RIP.
 
     Parameters
     ----------
-    total_tasks : list
-        All of the tasks to split among the processes
-    level : str, optional
-        Describes how much MPI information you want returned, by default 'basic'. Options are 'basic', 'lazy', 'advanced'
+    total_tasks : 1D list
+        List-like object of all of the tasks to break up among the ranks.
 
     Returns
     -------
-    list
-        if level == 'basic':
-            returns [comm, current_rank, subset_of_tasks_for_that_rank]
-        elif level == 'lazy':
-            returns everything that 'basic' returns, plus [Nranks, tasks_per_rank]
-        elif level == 'advanced':
-            returns everything that 'lazy' returns, plus [displacement_indices]
-
-    Raises
-    ------
-    ValueError
-        Valid 'level' options are ['basic', 'lazy', 'advanced']
-    """
-    #Level Options
-    level_options['basic'] = 3
-    level_options['lazy'] = level_options['basic'] + 2
-    level_options['lazy'] = level_options['lazy'] + 1
-    if level not in level_options.keys():
-        raise ValueError("'level' options are ['basic', 'lazy', 'advanced']")
-
+    comm, current_rank, subset
+        The names are self-explanatory except for 'subset', which is the subset of tasks for the particular rank that called the function.
+    """    
     #Basics
     comm = MPI.COMM_WORLD
     current_rank = comm.Get_rank()
@@ -43,12 +25,11 @@ def autoMPI(total_tasks, level='basic'):
     tasks_per_rank, displacements = calcMPI(len(total_tasks), Nranks)
     subset = total_tasks[displacements[current_rank] : displacements[current_rank+1]]
 
-    return_list = [comm, current_rank, subset, Nranks, tasks_per_rank, displacements]
-
-    return return_list[:level_options[level]]
+    return comm, current_rank, subset
 
 
-def calcMPI(Nsims, Nprocs):
+
+def distMPI(Nsims, Nprocs):
     """
     Calculates number of sims for each rank and the indices for breaking up the list of sim names.
 
@@ -77,7 +58,69 @@ def calcMPI(Nsims, Nprocs):
     return rows_per_rank, displacement
 
 
-def mpiReduce(comm, current_rank, array, root_rank=0):
+
+def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
+    """
+    Wrapper for mpi4py's Gatherv. The main advantage is that this creates the receiving buffer for each rank, including the data type and full buffer size (taking into account the size of each array that each rank computed). This also works with distMPI, without requiring the user to call calcMPI directly.
+
+    Parameters
+    ----------
+    comm : communicator object
+        MPI communicator
+    current_rank : int
+        Rank that's calling this function
+    rank_data : ndarray
+        Buffer that you're gathering for this rank
+    Ntasks_tot : int
+        Total number of tasks across all of your ranks combined
+
+    Returns
+    -------
+    array
+        Buffer returned by comm.Gatherv
+
+    Raises
+    ------
+    NotImplementedError
+        This only works for certain data types
+    """
+    #Get Some Parameters
+    Nranks = comm.Get_size()
+    indiv_array = rank_data[0]
+    indiv_array_shape = list(indiv_array.shape)
+    indiv_array_dtype = indiv_array.dtype
+    
+    #Set MPI Data Types
+    if indiv_array_dtype == np.cdouble:
+        mpi_dtype = MPI.DOUBLE_COMPLEX
+    elif indiv_array_dtype == np.double:
+        mpi_dtype = MPI.DOUBLE
+    elif indiv_array_dtype == np.int:
+        mpi_dtype = MPI.LONG
+    elif indiv_array_dtype == np.intc:
+        mpi_dtype = MPI.INT
+    else:
+        raise NotImplementedError(f"Unimplemented translation between {indiv_array_dtype} and MPI's datatypes")
+
+    #Create Receiving Buffer
+    if current_rank == 0:
+        recevbuff = np.empty( [Ntasks_tot] + indiv_array_shape , dtype= indiv_array_dtype)
+    else:
+        recevbuff = None
+
+    #Get Buffer's Memory Info
+    tasks_per_rank, task_displacements = calcMPI(Ntasks_tot, Nranks)
+    displacements = np.prod(indiv_array_shape) * task_displacements[:-1]
+    counts = np.prod(indiv_array_shape) * tasks_per_rank
+
+    #Gatherv
+    comm.Gatherv(rank_data, [recevbuff, counts, displacements, mpi_dtype], root= root_rank)
+
+    return recevbuff
+
+
+
+def MPI_Reduce(comm, current_rank, array, root_rank=0):
     """Just a wrapper for MPI Reduce, but ignores NaN's.
 
     Parameters
@@ -87,7 +130,7 @@ def mpiReduce(comm, current_rank, array, root_rank=0):
     current_rank : int
         The current rank
     array : float
-        Array to broadcast. Must be a numpy array
+        Array to collect. Must be a numpy array
     root_rank : int, optional
         Main rank that does the assembling, by default 0
 
