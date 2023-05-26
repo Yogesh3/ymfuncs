@@ -2,7 +2,7 @@ import numpy as np
 import sys
 from mpi4py import MPI 
 
-def autoMPI(total_tasks):
+def distMPI(total_tasks):
     """
     This is identical to orphics.mpi_distribute. RIP.
 
@@ -29,7 +29,7 @@ def autoMPI(total_tasks):
 
 
 
-def distMPI(Nsims, Nprocs):
+def calcMPI(Nsims, Nprocs):
     """
     Calculates number of sims for each rank and the indices for breaking up the list of sim names.
 
