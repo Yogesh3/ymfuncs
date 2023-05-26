@@ -19,7 +19,7 @@ def readTxt(fname):
 
 def readMap(mapfile_name):
     """
-    Reads in CAR map whose filename is in a text file.
+    Reads in CAR map whose filename is in a text file. Casts to calculation precision.
 
     Args:
         mapfile_name (string): text file with the full path of the map file
@@ -27,13 +27,14 @@ def readMap(mapfile_name):
     with open(mapfile_name) as name_fobj:
         mapname = name_fobj.readlines()[-1]
         themap = enmap.read_map(mapname)
-        
+        themap = np.double(themap)
+
     return themap
 
 
 def readAlm(almfile_name):
     """
-    Reads in single alm from text file.
+    Reads in single alm whose filename is in a text file. Casts to calculation precision.
 
     Args:
         almfile_name (string): text file with the full path of the map file
