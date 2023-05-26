@@ -15,6 +15,12 @@ def eshow(*plotslist, **user_kwargs):
     else:
         combineFlag = False
 
+    #Return Image?
+    if 'return_img' in user_kwargs.keys():
+        return_img = True
+    else:
+        return_img = False
+
     #Default Settings
     default_kwargs = {}
     default_kwargs['ticks'] = 10
@@ -40,17 +46,19 @@ def eshow(*plotslist, **user_kwargs):
         later_plots = enplot.get_plots(*plotslist[1:], **laterplots_kwargs)
 
         #Merge Plots
-        all_plots = []
-        all_plots.append(first_plot)
-        all_plots.extend(later_plots)
-        out_plots = enplot.merge_plots(np.sum(all_plots, axis=0))
+        # all_plots = []
+        # all_plots.append(first_plot)
+        # all_plots.extend(later_plots)
+        # import pdb; pdb.set_trace()
+        out_plots = enplot.merge_plots(first_plot + later_plots)
 
     else:
         out_plots = enplot.get_plots(*plotslist, **total_kwargs)
 
     enplot.show(out_plots, method = "ipython")
 
-    return out_plots
+    if return_img:
+        return out_plots
 
 
 
