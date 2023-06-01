@@ -1,7 +1,7 @@
 import numpy as np
 from astropy import units as u
 from falafel.utils import config
-from orphics import cosmology, maps as omaps
+from orphics import cosmology, maps as omaps 
 from classy_sz import Class
 
 def ell2ang(ell, angle_unit=None):

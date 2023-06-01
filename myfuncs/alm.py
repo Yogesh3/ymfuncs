@@ -1,6 +1,8 @@
 import healpy as hp
 import numpy as np
 import pymaster as nmt
+from orphics import maps as orphmaps
+from pixell import enmap
 
 
 def idx2lm(aidx):
@@ -83,7 +85,9 @@ def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= F
     If this has been pre-calculated, it can be provided as the pmap argument.
     
     """
-    assert mask.ndim==1 or mask.ndim==2
+    assert mask1.ndim==1 or mask1.ndim==2
+    if mask2 is not None:
+        assert mask2.ndim==1 or mask2.ndim==2
 
     #Get Pixel Map
     if pmap is None: 
@@ -91,10 +95,10 @@ def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= F
             npix = mask1.size
             pmap = 4*np.pi / npix if sht else enmap.area(mask1.shape,mask1.wcs) / npix
         else:
-            pmap = omaps.psizemap(mask1.shape,mask1.wcs)
+            pmap = orphmaps.psizemap(mask1.shape,mask1.wcs)
 
     #Create Composite Mask
-    mask_tot = mask1**n1  if not mask2  else  mask1**n1 * mask2**n2 
+    mask_tot = mask1**n1  if mask2 is None  else  mask1**n1 * mask2**n2 
     
     return np.sum(mask_tot * pmap) / np.pi/4.  if sht  else  np.sum(mask_tot * pmap) / np.sum(pmap)
 
