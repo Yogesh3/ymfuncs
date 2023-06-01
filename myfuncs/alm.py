@@ -1,7 +1,6 @@
 import healpy as hp
 import numpy as np
 import pymaster as nmt
-from myfuncs import utils as yutils
 
 
 def idx2lm(aidx):
@@ -63,6 +62,44 @@ def knox_formula_errors(power1, power2, fsky, ells, delta_ell, cross_power = Non
 
 
 
+def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= False):
+    """
+    Copied from orphics, but generalized to take 2 masks instead of only one. Both
+    masks must be on the same map footprint (only matters for CAR).
+
+    Approximate correction to an n-point function for the loss of power
+    due to the application of a mask.
+
+    For an n-point function using SHTs, this is the ratio of 
+    area weighted by the nth power of the mask to the full sky area 4 pi.
+    This simplifies to mean(mask**n) for equal area pixelizations like
+    healpix. For SHTs on CAR, it is sum(mask**n * pixel_area_map) / 4pi.
+    When using FFTs, it is the area weighted by the nth power normalized
+    to the area of the map. This also simplifies to mean(mask**n)
+    for equal area pixels. For CAR, it is sum(mask**n * pixel_area_map) 
+    / sum(pixel_area_map).
+
+    If not, it does an expensive calculation of the map of pixel areas based on mask1.
+    If this has been pre-calculated, it can be provided as the pmap argument.
+    
+    """
+    assert mask.ndim==1 or mask.ndim==2
+
+    #Get Pixel Map
+    if pmap is None: 
+        if equal_area:
+            npix = mask1.size
+            pmap = 4*np.pi / npix if sht else enmap.area(mask1.shape,mask1.wcs) / npix
+        else:
+            pmap = omaps.psizemap(mask1.shape,mask1.wcs)
+
+    #Create Composite Mask
+    mask_tot = mask1**n1  if not mask2  else  mask1**n1 * mask2**n2 
+    
+    return np.sum(mask_tot * pmap) / np.pi/4.  if sht  else  np.sum(mask_tot * pmap) / np.sum(pmap)
+
+
+
 def getField(signal_map, mask, lmax=4000, **user_kwargs):
 
     #Presets
@@ -82,7 +119,7 @@ def calcSpectrum(map_set1, map_set2= None, decouple= True, wsp_name= None):
     """
     Calculates auto/cross spectrum from CAR maps/mask1s using pymaster.
 
-    If you want a mode-decoupled spectrum, provide the name of the workspace with the appropriate mode-coupling matrix. If you want the coupled spectrum, it can do that, but it doesn't apply any wfactors for you (see myfuncs.utils.wfactor).
+    If you want a mode-decoupled spectrum, provide the name of the workspace with the appropriate mode-coupling matrix. If you want the coupled spectrum, it can do that, but it doesn't apply any wfactors for you (see myfuncs.alm.wfactor).
 
     Parameters
     ----------
