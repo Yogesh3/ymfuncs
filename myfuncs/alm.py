@@ -105,7 +105,22 @@ def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= F
 
 
 def getField(signal_map, mask, lmax=4000, **user_kwargs):
+    """Calculates the pymaster field for a given map and its mask. Has several keyword arguments.
 
+    Parameters
+    ----------
+    signal_map : 2d array
+        Map. If it's not masked, set 'masked_on_input'=False and the given mask will be applied.
+    mask : 2d array
+        Mask
+    lmax : int, optional
+        Ell max for power spectrum, by default 4000
+
+    Returns
+    -------
+    field object
+        Field object from pymaster
+    """
     #Presets
     standard_kwargs = {}
     standard_kwargs['spin'] = 0
@@ -118,10 +133,12 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
 
     field = nmt.NmtField(mask, [signal_map], wcs= mask.wcs, **kwargs)
 
+    return field
+
 
 def calcSpectrum(map_set1, map_set2= None, decouple= True, wsp_name= None):
     """
-    Calculates auto/cross spectrum from CAR maps/mask1s using pymaster.
+    Calculates auto/cross spectrum from CAR maps/masks using pymaster.
 
     If you want a mode-decoupled spectrum, provide the name of the workspace with the appropriate mode-coupling matrix. If you want the coupled spectrum, it can do that, but it doesn't apply any wfactors for you (see myfuncs.alm.wfactor).
 
