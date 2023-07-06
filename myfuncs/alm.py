@@ -144,9 +144,9 @@ def calcSpectrum(map_set1, map_set2= None, decouple= True, wsp_name= None):
 
     Parameters
     ----------
-    map_set1 : list
+    map_set1 : list of 2d arrays
         [map1, mask1]
-    map_set2 : list, optional
+    map_set2 : list of 2d arrays, optional
         [map2, mask2] (only applicable for cross spectrum), by default None
     decouple : bool, optional
         Calculate the mode-decoupled spectrum, by default True
