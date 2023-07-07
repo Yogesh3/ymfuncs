@@ -121,7 +121,7 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
 
 
 def MPI_Reduce(comm, current_rank, array, root_rank=0):
-    """Just a wrapper for MPI Reduce, but ignores NaN's.
+    """Just a wrapper for MPI Reduce (with MPI.SUM operation), but ignores NaN's.
 
     Parameters
     ----------
@@ -144,7 +144,7 @@ def MPI_Reduce(comm, current_rank, array, root_rank=0):
     if current_rank == root_rank:
         Nranks = comm.Get_size()
         tot_shape = [Nranks] + list(array.shape)
-        recbuf = np.zeros(tot_shape)
+        recbuf = np.zeros(tot_shape, dtype= array.dtype)
 
     comm.Gather(array, recbuf, root= root_rank)
 
@@ -152,6 +152,7 @@ def MPI_Reduce(comm, current_rank, array, root_rank=0):
         return np.nansum(recbuf, axis=0)
     else:
         return None
+
 
 
 def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time):
@@ -194,7 +195,7 @@ def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time):
     return tot_time
 
 
-def printTotalTime(start, end, hourFlag=False, Nthings=0, type='sims'):
+def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
     """Calculates and prints out the total time it took to complete multiple (or 1) tasks. Prints time in min and sec (and hours, optionally).
 
     Parameters
@@ -207,7 +208,7 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, type='sims'):
         Do you want the time to be terms of hours too?. By default False
     Nthings : int, optional
         Number of tasks, by default 0
-    type : str, optional
+    thing_type : str, optional
         Name of the type of task, by default 'sims'
     """
 
@@ -219,7 +220,7 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, type='sims'):
 
         #Print
         if Nthings > 0:
-            print(f'\nTook {time_min:.0f} min and {time_sec} sec for {Nthings} ' + type)
+            print(f'\nTook {time_min:.0f} min and {time_sec} sec for {Nthings} ' + thing_type)
         else:
             print(f'\nTook {time_min:.0f} min and {time_sec} sec')
 
@@ -230,6 +231,6 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, type='sims'):
 
         #Print
         if Nthings > 0:
-            print(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} sims')
+            print(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
         else:
             print(f'\nTook {time_hour:.0f} hour and {time_sec} sec')

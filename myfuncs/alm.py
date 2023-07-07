@@ -136,7 +136,7 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
     return field
 
 
-def calcSpectrum(map_set1, map_set2= None, decouple= True, wsp_name= None):
+def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
     """
     Calculates auto/cross spectrum from CAR maps/masks using pymaster.
 
@@ -148,10 +148,8 @@ def calcSpectrum(map_set1, map_set2= None, decouple= True, wsp_name= None):
         [map1, mask1]
     map_set2 : list of 2d arrays, optional
         [map2, mask2] (only applicable for cross spectrum), by default None
-    decouple : bool, optional
-        Calculate the mode-decoupled spectrum, by default True
     wsp_name : str, optional
-        Path name of the pymaster workspace object with the mode-coupling matrix, by default None
+        Full path of the pymaster workspace object with the mode-coupling matrix, by default None
 
     Returns
     -------
@@ -174,9 +172,7 @@ def calcSpectrum(map_set1, map_set2= None, decouple= True, wsp_name= None):
     Cl_coup = nmt.compute_coupled_cell(f1, f2)
 
     #Decoupled Spectrum
-    if decouple:
-        assert wsp_name, "You want a decoupled spectrum but never gave a workspace with the mode-coupling matrix!"
-
+    if wsp_name:
         Cl_decoup = wsp.decouple_cell(Cl_coup)
         Cl_decoup = Cl_decoup[0,:]
 
