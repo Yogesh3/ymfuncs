@@ -89,3 +89,25 @@ def readAlmPrecisely(almfile_name):
     alm = np.cdouble(alm)
 
     return alm
+
+
+def getProjectDir(machinename):
+    """
+    Return the directory with the data for a given machine. This is either a project or scratch directory on a supercomputer, or a directory on a local machine.
+
+    Parameters
+    ----------
+    machinename : str
+        Name of the machine/computer. Options: ['niagara', 'perlmutter', 'legion']
+
+    Returns
+    -------
+    path : str
+        path of the data directory
+    """    
+    if machinename.lower() == 'niagara':
+        path = '/project/r/rbond/ymehta3/'
+    elif machinename.lower() == 'perlmutter':
+        path = '/pscratch/sd/y/yogesh3/'
+
+    return path
