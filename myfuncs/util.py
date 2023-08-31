@@ -412,8 +412,10 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
     return ells, Cls_dict
     
     
-def phi2kappa(phi, ells=None):
+def phi2kappa(phi, n= 1,  ells=None):
     if not ells:
         ells = np.arange(len(phi))
 
-    return ells * (ells + 1.) / 2. * phi
+    factor = ells * (ells + 1.) / 2.
+
+    return  factor**n * phi
