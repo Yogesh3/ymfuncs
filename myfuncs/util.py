@@ -184,7 +184,7 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
 #         output = np.sum(mask1**n1 * mask2**n2 * pmap) /np.pi / 4.
 #     return output
 
-def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
+def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, ):
     """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
 
     Parameters
@@ -209,9 +209,9 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
 
     #Parameters for Cosmology Planck 14, https://arxiv.org/pdf/1303.5076.pdf, best-fit
     p14_dict={}
-    p14_dict['h'] = 0.6711      
+    p14_dict['h'] = 0.6711 
     p14_dict['omega_b'] = 0.022068
-    p14_dict['Omega_cdm'] = 0.3175-0.022068/0.6711/0.6711
+    p14_dict['Omega_cdm'] = 0.3175 - 0.022068/p14_dict['h']/p14_dict['h']
     p14_dict['A_s'] = 2.2e-9
     p14_dict['n_s'] = .9624
     p14_dict['k_pivot'] = 0.05
@@ -263,14 +263,14 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
 
     #CIB Parameters
     p_CIB_dict = {}
-    p_CIB_dict['Redshift_evolution_of_dust_temperature'] =  0.36
-    p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
-    p_CIB_dict['Emissivity index of sed'] = 1.75
-    p_CIB_dict['Power law index of SED at high frequency'] = 1.7
-    p_CIB_dict['Redshift evolution of L - M normalisation'] = 3.6
-    p_CIB_dict['Most efficient halo mass in Msun'] = 10**12.6
-    p_CIB_dict['Normalisation of L - M relation in [Jy MPc2/Msun]'] = 6.4e-8
-    p_CIB_dict['Size of of halo masses sourcing CIB emission'] = 0.5
+    p_CIB_dict['alpha'] =  0.36
+    p_CIB_dict['T_o'] = 24.4
+    p_CIB_dict['beta'] = 1.75
+    p_CIB_dict['gamma'] = 1.7
+    p_CIB_dict['delta'] = 3.6
+    p_CIB_dict['M_eff'] = 10**12.6
+    p_CIB_dict['L_o'] = 6.4e-8
+    p_CIB_dict['sigma_sq'] = 0.5
 
     # nu_list = [353,545,857]
     nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
@@ -398,7 +398,7 @@ def getClassyCIB(spectra, nu_list, emulFlag=False, params={}):
         #Cycle through Frequencies
         for nu in freq_list:
             #Get ells
-            if not ells:
+            if not len(ells):
                 ells = np.array(Dl_dict[nu]['ell'])
                 fac = ells * (ells+1) / 2/np.pi
 
