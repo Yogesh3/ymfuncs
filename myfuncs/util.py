@@ -184,7 +184,7 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
 #         output = np.sum(mask1**n1 * mask2**n2 * pmap) /np.pi / 4.
 #     return output
 
-def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, ):
+def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, kappaFlag=False):
     """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
 
     Parameters
@@ -193,10 +193,12 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, ):
         Which CIB spectra do you want? Options: 'auto', 'cross', 'both'
     nu_list : float
         List of observing frequencies as numbers in GHz.
-    emulFlag : bool, optional
-        Use the cosmopower emulators?, by default False
     params : dict, optional
         Dictionary of classy_sz parameters, by default empty
+    emulFlag : bool, optional
+        Use the cosmopower emulators?, by default False
+    kappaFlag : bool, optional
+        return kappa autospectrum?, by defualt False
 
     Returns
     -------
@@ -360,6 +362,8 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, ):
         outspec.append('cib_cib_1h,cib_cib_2h')
     if spectra.lower() == 'both' or spectra == 'cross':
         outspec.append('lens_cib_1h,lens_cib_2h')
+    if kappaFlag:
+        outspec.append('lens_lens_1h,lens_lens_2h')
     M.set({'output': ','.join(outspec)})
 
     #Add Parameters
@@ -387,7 +391,7 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, ):
 
     ells = []
     Cls_dict = {}
-    #Cycle Through Spectra
+    #Cycle Through CIB Spectra
     for spec_key, Dl_dict in Dl_spectra.items():
         if spec_key.lower() in ['cross', 'both']:
             freq_list = sort_str_list( list(Dl_dict.keys()) )
@@ -400,22 +404,45 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, ):
             #Get ells
             if not len(ells):
                 ells = np.array(Dl_dict[nu]['ell'])
-                fac = ells * (ells+1) / 2/np.pi
 
             #Get Spectra
             Dl_total = np.array(Dl_dict[nu]['1h']) + np.array(Dl_dict[nu]['2h'])
-            Cl_total = Dl_total / fac
+            Cl_total = dl2cl(Dl_total, ells= ells)
 
             #Save Spectra
             Cls_dict[spec_key][nu] = Cl_total
         
+    #Get Kappa Autospectrum
+    if kappaFlag:
+        Dl_phi = M.cl_lens_lens()
+        Cl_phi = dl2cl(Dl_phi, ells= ells)
+        Cls_dict['lens'] = Cl_phi
+
     return ells, Cls_dict
     
     
-def phi2kappa(phi, n= 1,  ells=None):
+def phi2kappa(phi, type= 'spectrum', ells= None):
+
     if not ells:
         ells = np.arange(len(phi))
 
     factor = ells * (ells + 1.) / 2.
 
-    return  factor**n * phi
+    if type == 'spectrum':
+        kappa = factor**2 * phi
+    elif type == 'map':
+        kappa = factor**2 * phi
+    else:
+        raise ValueError('Invalid "type" argument')
+
+    return kappa
+
+
+def dl2cl(Dl, ells= None):
+    
+    if ells is None:
+        ells = np.arange(len(Dl))
+    
+    factor = ells * (ells+1) / (2*np.pi)
+    
+    return Dl / factor
