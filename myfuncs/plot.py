@@ -119,3 +119,13 @@ def get_color_cycle(cmap, N=None, use_index="auto", iterFlag=False, vmin=0, vmax
         return cycler.by_key()['color']
     else:
         return cycler
+
+
+def savefig(fname, figure, **kwargs):
+    #Default Options
+    default_options = {}
+    default_options['bbox_inches'] = 'tight'
+    default_options['dpi'] = 500
+
+    options = { **default_options, **kwargs }
+    figure.savefig(fname, **options)
