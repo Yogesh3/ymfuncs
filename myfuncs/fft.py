@@ -43,15 +43,15 @@ def fft2cl(fft, bin_edges, modlmap):
     Returns
     -------
     1d array, 1d array
-        ells_binned, Cl
+        ells_binned (which have length = len(bin_edges) - 1), Cl
     """
-    binner = ostats.bin2D(modlmap, np.insert(bin_edges, 0,0))
+    binner = ostats.bin2D(modlmap, bin_edges)
     cents, Cl = binner.bin(fft)
 
     return cents, Cl
 
 
-def map2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, return_wfac= False):
+def maps2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, return_wfac= False):
     if pixmap2 is None:
         pixmap2 = pixmap1
 
@@ -70,7 +70,7 @@ def map2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, return_wfac= Fa
         ffts.append(enmap.fft(pixmap1, normalize='physical'))
 
     #Power Spectrum Calculation
-    ells_binned, Cls = fft2cl( xcorr(*ffts) , ell_edges, pixmap1.modlmap())
+    ells_binned, Cls = fft2cl( xcorr(*ffts), ell_edges, pixmap1.modlmap())
 
     if not return_wfac:
         return ells_binned, Cls
