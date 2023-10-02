@@ -404,7 +404,7 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False, kappaFlag=False):
 
 def phi2kappa(phi, type= 'spectrum', ells= None):
 
-    if not ells:
+    if ells is None:
         ells = np.arange(len(phi))
 
     factor = ells * (ells + 1.) / 2.
@@ -427,6 +427,17 @@ def dl2cl(Dl, ells= None):
     factor = ells * (ells+1) / (2*np.pi)
     
     return Dl / factor
+
+
+def cl2dl(Cl, ells= None):
+    
+    if ells is None:
+        ells = np.arange(len(Cl))
+    
+    factor = ells * (ells+1) / (2*np.pi)
+    
+    return Cl * factor
+
 
 
 
