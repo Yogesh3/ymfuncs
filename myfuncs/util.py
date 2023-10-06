@@ -4,6 +4,23 @@ from falafel.utils import config
 from orphics import cosmology, maps as omaps 
 from classy_sz import Class
 
+def deg2fsky(sq_deg):
+    """
+    Converts square degrees on the sky to the sky fraction.
+
+    Parameters
+    ----------
+    sq_deg : float
+        Area in square degrees
+
+    Returns
+    -------
+    float
+        sky fraction
+    """    
+    return sq_deg * (np.pi/180)**2 / (4 * np.pi)    
+
+
 def ell2ang(ell, angle_unit=None):
     """Convert from harmonic mode ell to an angle with units.
 
