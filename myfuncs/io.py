@@ -27,8 +27,7 @@ def readMapFromFile(mapfile_name):
     
     with open(mapfile_name) as name_fobj:
         mapname = name_fobj.readlines()[-1]
-        themap = enmap.read_map(mapname)
-        themap = np.double(themap)
+        themap = readMapPrecisely(mapname)
 
     return themap
 
@@ -43,8 +42,7 @@ def readAlmFromFile(almfile_name):
 
     with open(almfile_name) as name_fobj:
         alm_name = name_fobj.readlines()[0]
-        alm = hp.read_alm(alm_name)
-        alm = np.cdouble(alm)
+        alm = readAlmPrecisely(alm_name)
 
     return alm
 

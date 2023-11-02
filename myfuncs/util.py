@@ -111,26 +111,6 @@ def sort_str_list(l):
     return string_list
 
 
-def binning(binsize, xdata, ydata, start='midpoint'):
-    """
-    Bins x and y data. Handles NaNs just fine. Only works for bins of equal length. For arbitrary or uneven spacing (e.g. log), use orphics.
-    """
-
-    #Bin xdata
-    if start.lower() == 'midpoint':
-        midpoint = binsize//2 - 1              # midpoint if binsize = odd and to the left of midpoint if binsize = even
-        xbins = xdata[midpoint : (xdata.size//binsize) * binsize : binsize]
-    elif start.lower() == 'left':
-        xbins = xdata[: (xdata.size//binsize) * binsize : binsize] 
-    else:
-        raise ValueError('Need a valid')
-    
-    #Bin ydata
-    ybins = ydata[:(ydata.size//binsize) * binsize]    # drop the last bin if it's too small
-    ybins = np.nanmean(ybins.reshape(-1, binsize), axis=-1)
-
-    return xbins, ybins
-
 
 def percentDiscrepancy(exp, ref):
     return (exp - ref) / ref * 100
@@ -472,9 +452,10 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     return ells, Cls_dict
     
     
+
 def phi2kappa(phi, type= 'spectrum', ells= None):
 
-    if not ells:
+    if ells is None:
         ells = np.arange(len(phi))
 
     factor = ells * (ells + 1.) / 2.
@@ -497,3 +478,79 @@ def dl2cl(Dl, ells= None):
     factor = ells * (ells+1) / (2*np.pi)
     
     return Dl / factor
+
+
+def cl2dl(Cl, ells= None):
+    
+    if ells is None:
+        ells = np.arange(len(Cl))
+    
+    factor = ells * (ells+1) / (2*np.pi)
+    
+    return Cl * factor
+
+
+
+
+def bin_cen2edg(centers, dbins= None):
+    """
+    Shifts from midpoints of bins to the edges of the bins (inclusive of the lower and upper endpoints).
+
+    Parameters
+    ----------
+    centers : 1darray
+        Midpoints of bins
+    dbins : 1darray, optional
+        Size of each bin if you have unevenly spaced bins. By default None
+
+    Returns
+    -------
+    1darray
+        Edges of the bins (including both the lowest and highest edges). Length is 1+len(centers)
+    """
+    if dbins is None:
+        delta = centers[1] - centers[0]
+        dbins = np.ones(centers.shape) * delta
+
+    right_edges = centers - dbins/2
+    edges = np.append(right_edges, right_edges[-1] + delta)  # doing this instead of centers[-1] * delta/2 avoids issues with odd deltas
+
+    return edges
+
+
+def bin_edg2cen(edges):
+    """
+    Shifts from the edges of bins to their midpoints. Works for unevenly sized bins.
+
+    Parameters
+    ----------
+    edges : 1darray
+        Edges of the bins, including the left edge of the first bin and right edge of the last bin.
+
+    Returns
+    -------
+    1darray
+        Midponts of the bins. Length is len(edges) - 1.
+    """
+    return (edges[1:] + edges[:-1]) / 2
+
+
+def binning(binsize, xdata, ydata, start='midpoint'):
+    """
+    Bins x and y data. Handles NaNs just fine. Only works for bins of equal length. For arbitrary or uneven spacing (e.g. log), use orphics.
+    """
+
+    #Bin xdata
+    if start.lower() == 'midpoint':
+        midpoint = binsize//2 - 1              # midpoint if binsize = odd and to the left of midpoint if binsize = even
+        xbins = xdata[midpoint : (xdata.size//binsize) * binsize : binsize]
+    elif start.lower() == 'left':
+        xbins = xdata[: (xdata.size//binsize) * binsize : binsize] 
+    else:
+        raise ValueError('Need a valid')
+    
+    #Bin ydata
+    ybins = ydata[:(ydata.size//binsize) * binsize]    # drop the last bin if it's too small
+    ybins = np.nanmean(ybins.reshape(-1, binsize), axis=-1)
+
+    return xbins, ybins
