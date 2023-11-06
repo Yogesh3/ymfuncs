@@ -43,6 +43,7 @@ def ell2ang(ell, angle_unit=None):
     return theta.to(units_dict[angle_unit], equivalencies=u.dimensionless_angles())
 
 
+
 def ang2ell(angle, angle_unit=None):
     """Convert from an angle to harmonic mode ell. This function adds the astropy units so you only need numbers and strings to use it.
 
@@ -82,8 +83,10 @@ def ang2ell(angle, angle_unit=None):
     return int(2 * np.pi / angle.value)
 
 
+
 def nanToZeros(array):
     return np.where(array == np.nan, 0., array)
+
 
 
 def str2bool(string):
@@ -116,8 +119,10 @@ def percentDiscrepancy(exp, ref):
     return (exp - ref) / ref * 100
 
 
+
 def SN(signal, noise):
     return np.sqrt(np.sum( signal**2 / noise**2 ))
+
 
 
 def get_theory_dicts(nells=None,lmax=9000,grad=True):
@@ -153,136 +158,20 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
 
 
 
-#DEPRECATED!
-#Mat's version in orphics is better documented, can take pre-calculated pixel area maps, and works for FFTs and equal area maps
-# def wn(mask1, n1, mask2=None, n2=None):
-#     """TODO: check pixel area average"""
-#     pmap = orphics.maps.psizemap(mask1.shape, mask1.wcs)
-#     if mask2 is None:
-#         output = np.sum(mask1**n1 * pmap) /np.pi / 4.
-#     else:
-#         output = np.sum(mask1**n1 * mask2**n2 * pmap) /np.pi / 4.
-#     return output
-
-def getClassyKappa(params={}):
+def defaultClassyParams(cib_freqs = []):
     """
-    Return kappa auto spectrum from classy_sz.
+    Get default parameters used when getting classy_sz power spectra.
 
     Parameters
     ----------
-    params : dict, optional
-        Any parameters you want to pass to classy_sz, by default {}
+    cib_freqs : list, optional
+        List of CIB frequencies. By default, []
 
     Returns
     -------
-    ells, dict
-        Ells and dictionary of kappa auto spectrum. Keys are 'hm' for halo model-based nonlinear power spectrum and 'hf' for HaloFit-based nonlinear power spectrum.
+    dictionary
+        Dictionary of parameters for classy_sz. Keys are strings
     """
-    #Parameters for Cosmology Planck 14, https://arxiv.org/pdf/1303.5076.pdf, best-fit
-    p14_dict={}
-    p14_dict['h'] = 0.6711 
-    p14_dict['omega_b'] = 0.022068
-    p14_dict['Omega_cdm'] = 0.3175 - 0.022068/p14_dict['h']/p14_dict['h']
-    p14_dict['A_s'] = 2.2e-9
-    p14_dict['n_s'] = .9624
-    p14_dict['k_pivot'] = 0.05
-    p14_dict['tau_reio'] = 0.0925
-    p14_dict['N_ncdm'] = 1
-    p14_dict['N_ur'] = 0.00641
-    p14_dict['deg_ncdm'] = 3
-    p14_dict['m_ncdm'] = 0.02
-    p14_dict['T_ncdm'] = 0.71611
-
-    p_hm_dict = {}
-
-    #Grid Parameters
-    # Redshift bounds
-    p_hm_dict['z_min'] = 0.07
-    p_hm_dict['z_max'] = 6. # fiducial for MM20 : 6
-    p_hm_dict['freq_min'] = 10.
-    p_hm_dict['freq_max'] = 5e4 # fiducial for MM20 : 6
-    p_hm_dict['z_max_pk'] = p_hm_dict['z_max']
-
-    #Precision Parameters
-    # Precision for redshift integal
-    p_hm_dict['redshift_epsabs'] = 1e-40#1.e-40
-    p_hm_dict['redshift_epsrel'] = 1e-4#1.e-10 # fiducial value 1e-8
-    # Precision for mass integal
-    p_hm_dict['mass_epsabs'] = 1e-40 #1.e-40
-    p_hm_dict['mass_epsrel'] = 1e-4#1e-10
-    # Multipole array
-    p_hm_dict['dlogell'] = 1
-    p_hm_dict['ell_max'] = 3968.0
-    p_hm_dict['ell_min'] = 2.0
-
-    #More Params
-    p_hm_dict['ndim_masses'] = 150 # important 128 is default ccl value
-    p_hm_dict['ndim_redshifts'] = 150
-    p_hm_dict['non_linear'] = 'halofit'
-    p_hm_dict['perturb_sampling_stepsize']  = 0.005
-    p_hm_dict['k_max_tau0_over_l_max'] = 5.
-
-    #Spectra 
-    outspec = {}
-    outspec['output'] = 'lens_lens_1h,lens_lens_2h,len_lens_hf'
-    if 'output' in params.keys():
-        outspec['output'] = outspec['output'] + '_' + params.pop('output')
-
-    #Create Class Object
-    M = Class()
-
-    #Add Parameters
-    M.set(p14_dict)
-    M.set(p_hm_dict)
-    M.set(outspec)
-    if params:
-        M.set(params)
-        
-    #Compute Power Spectra
-    M.compute()
-    Dl_kappa_dict = M.cl_kk()
-    ells = np.array(Dl_kappa_dict['ell'])
-
-    Cls_kappa = {}
-
-    #Get Halo Model Kappa
-    Dl_kappa_hm = np.array(Dl_kappa_dict['1h']) + np.array(Dl_kappa_dict['2h'])
-    Cl_kappa_hm = dl2cl(Dl_kappa_hm, ells= ells)
-    Cls_kappa['hm'] = Cl_kappa_hm
-
-    #Get Halofit Kappa
-    Cl_hf = dl2cl(Dl_kappa_dict['hf'], ells= ells)
-    Cls_kappa['hf'] = Cl_hf
-
-    M.struct_cleanup()
-    M.empty()
-
-    return ells, Cls_kappa
-
-
-    
-def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
-    """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
-
-    Parameters
-    ----------
-    spectra : str
-        Which CIB spectra do you want? Options: 'auto', 'cross', 'both'
-    nu_list : float
-        List of observing frequencies as numbers in GHz.
-    params : dict, optional
-        Dictionary of classy_sz parameters, by default empty
-    emulFlag : bool, optional
-        Use the cosmopower emulators?, by default False
-
-    Returns
-    -------
-    ells, Cls_dict
-        Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross' (and optionally 'kappa'), and each of those entries is itself a dictionary indexed by observing frequency as a string (and optionally by 'hm' or 'hf' for kappa).
-    """
-
-    if spectra.lower() not in ['both', 'cross', 'auto']:
-        raise ValueError("Your 'spectra' variable is incorrect")
 
     #Parameters for Cosmology Planck 14, https://arxiv.org/pdf/1303.5076.pdf, best-fit
     p14_dict={}
@@ -338,6 +227,13 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     p_hm_dict['ell_max'] = 3968.0
     p_hm_dict['ell_min'] = 2.0
 
+    #More Params
+    p_hm_dict['ndim_masses'] = 150 # important 128 is default ccl value
+    p_hm_dict['ndim_redshifts'] = 150
+    p_hm_dict['non_linear'] = 'halofit'
+    p_hm_dict['perturb_sampling_stepsize']  = 0.005
+    p_hm_dict['k_max_tau0_over_l_max'] = 5.
+
     #CIB Parameters
     p_CIB_dict = {}
     p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
@@ -349,7 +245,10 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     p_CIB_dict['Normalisation of L - M relation in [Jy MPc2/Msun]'] = 6.4e-8
     p_CIB_dict['Size of of halo masses sourcing CIB emission'] = 0.5
 
-    # nu_list = [353,545,857]
+    #Establish CIB Frequencies
+    nu_list = {353, 545, 857}
+    for freq in cib_freqs:
+        nu_list.add(freq) 
     nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
 
     #Frequency Parameters
@@ -390,6 +289,129 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     p_freq_dict['cib_Snu_cutoff_list [mJy]'] = str(list(cib_flux_list))[1:-1]
     p_freq_dict['has_cib_flux_cut'] = 1
 
+    return {**p14_dict, **p_hm_dict, **p_CIB_dict, **p_freq_dict}
+
+
+
+def getClassyKappa(params={}):
+    """
+    Return kappa auto spectrum from classy_sz.
+
+    Parameters
+    ----------
+    params : dict, optional
+        Any parameters you want to pass to classy_sz, by default {}
+
+    Returns
+    -------
+    ells, dict
+        Ells and dictionary of kappa auto spectrum. Keys are 'hm' for halo model-based nonlinear power spectrum and 'hf' for HaloFit-based nonlinear power spectrum.
+    """
+    # #Parameters for Cosmology Planck 14, https://arxiv.org/pdf/1303.5076.pdf, best-fit
+    # p14_dict={}
+    # p14_dict['h'] = 0.6711 
+    # p14_dict['omega_b'] = 0.022068
+    # p14_dict['Omega_cdm'] = 0.3175 - 0.022068/p14_dict['h']/p14_dict['h']
+    # p14_dict['A_s'] = 2.2e-9
+    # p14_dict['n_s'] = .9624
+    # p14_dict['k_pivot'] = 0.05
+    # p14_dict['tau_reio'] = 0.0925
+    # p14_dict['N_ncdm'] = 1
+    # p14_dict['N_ur'] = 0.00641
+    # p14_dict['deg_ncdm'] = 3
+    # p14_dict['m_ncdm'] = 0.02
+    # p14_dict['T_ncdm'] = 0.71611
+
+    # p_hm_dict = {}
+
+    # #Grid Parameters
+    # # Redshift bounds
+    # p_hm_dict['z_min'] = 0.07
+    # p_hm_dict['z_max'] = 6. # fiducial for MM20 : 6
+    # p_hm_dict['freq_min'] = 10.
+    # p_hm_dict['freq_max'] = 5e4 # fiducial for MM20 : 6
+    # p_hm_dict['z_max_pk'] = p_hm_dict['z_max']
+
+    # #Precision Parameters
+    # # Precision for redshift integal
+    # p_hm_dict['redshift_epsabs'] = 1e-40#1.e-40
+    # p_hm_dict['redshift_epsrel'] = 1e-4#1.e-10 # fiducial value 1e-8
+    # # Precision for mass integal
+    # p_hm_dict['mass_epsabs'] = 1e-40 #1.e-40
+    # p_hm_dict['mass_epsrel'] = 1e-4#1e-10
+    # # Multipole array
+    # p_hm_dict['dlogell'] = 1
+    # p_hm_dict['ell_max'] = 3968.0
+    # p_hm_dict['ell_min'] = 2.0
+
+    #Get Parameters
+    default_params = defaultClassyParams()
+
+    #Spectra 
+    outspec = {}
+    outspec['output'] = 'lens_lens_1h,lens_lens_2h,len_lens_hf'
+    if 'output' in params.keys():
+        params.pop('output')      # TODO: make general classy_sz function
+        # outspec['output'] = outspec['output'] + ',' + params.pop('output')      
+
+    #Create Class Object
+    M = Class()
+
+    #Add Parameters
+    M.set(default_params)
+    M.set(outspec)
+    if params:
+        M.set(params)
+        
+    #Compute Power Spectra
+    M.compute()
+    Dl_kappa_dict = M.cl_kk()
+    ells = np.array(Dl_kappa_dict['ell'])
+
+    Cls_kappa = {}
+
+    #Get Halo Model Kappa
+    Dl_kappa_hm = np.array(Dl_kappa_dict['1h']) + np.array(Dl_kappa_dict['2h'])
+    Cl_kappa_hm = dl2cl(Dl_kappa_hm, ells= ells)
+    Cls_kappa['hm'] = Cl_kappa_hm
+
+    #Get Halofit Kappa
+    Cl_hf = dl2cl(Dl_kappa_dict['hf'], ells= ells)
+    Cls_kappa['hf'] = Cl_hf
+
+    M.struct_cleanup()
+    M.empty()
+
+    return ells, Cls_kappa
+
+
+    
+def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
+    """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
+
+    Parameters
+    ----------
+    spectra : str
+        Which CIB spectra do you want? Options: 'auto', 'cross', 'both'
+    nu_list : float
+        List of observing frequencies as numbers in GHz.
+    params : dict, optional
+        Dictionary of classy_sz parameters, by default empty
+    emulFlag : bool, optional
+        Use the cosmopower emulators?, by default False
+
+    Returns
+    -------
+    ells, Cls_dict
+        Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string (i.e. 'freq' for the auto and 'freqxfreq' for the cross).
+    """
+
+    #Get Parameters
+    default_params = defaultClassyParams(cib_freqs= nu_list)
+
+    if spectra.lower() not in ['both', 'cross', 'auto']:
+        raise ValueError("Your 'spectra' variable is incorrect. See docstring for accepted values.")
+
     #Create Class Object
     M = Class()
     
@@ -402,14 +424,10 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     M.set({'output': ','.join(outspec)})
 
     #Add Parameters
-    M.set(p14_dict)
-    M.set(p_hm_dict)
-    M.set(p_CIB_dict)
-    M.set(p_freq_dict)
+    M.set(default_params)
     if params:
         M.set(params)
             
-    # import pdb;pdb.set_trace()
     #Compute Spectra
     if emulFlag:
         M.compute_class_szfast()
