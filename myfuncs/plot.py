@@ -7,7 +7,9 @@ import numpy as np
 
 
 def eshow(*plotslist, **user_kwargs): 
-    ''' Wrapper to plot enmaps. Sets defaults for the map images and allows to combine maps.'''
+    ''' 
+    Wrapper to plot enmaps. Sets defaults for the map images and allows to combine maps.
+    '''
         
     #Combine Multiple Maps into a Single Image?
     if 'combine' in user_kwargs.keys():
@@ -62,13 +64,16 @@ def eshow(*plotslist, **user_kwargs):
 
 
 
-def getDefaultColors():
+def getCurrentColors():
+    """
+    Returns list of colors in current color cycle.
+    """
     return plt.rcParams['axes.prop_cycle'].by_key()['color']
 
 
 
-def get_color_cycle(cmap, N=None, use_index="auto", iterFlag=False, vmin=0, vmax=1):
-    """Get iterable color cycler to pass to plt.rcParams["axes.prop_cycle"]. Shamelessly taken from https://stackoverflow.com/questions/30079590/use-matplotlib-color-map-for-color-cycle
+def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin=0, vmax=1):
+    """Get iterable color cycler to pass to plt.rcParams["axes.prop_cycle"]. Shamelessly adapted from https://stackoverflow.com/questions/30079590/use-matplotlib-color-map-for-color-cycle
 
     Parameters
     ----------
@@ -110,7 +115,7 @@ def get_color_cycle(cmap, N=None, use_index="auto", iterFlag=False, vmin=0, vmax
 
     if use_index:
         ind = np.arange(int(N)) % cmap.N
-        cyler = mpl.cycler("color",cmap(ind))
+        cycler = mpl.cycler("color",cmap(ind))
     else:
         colors = cmap(np.linspace(vmin, vmax, N))
         cycler = mpl.cycler("color",colors)
@@ -119,6 +124,64 @@ def get_color_cycle(cmap, N=None, use_index="auto", iterFlag=False, vmin=0, vmax
         return cycler.by_key()['color']
     else:
         return cycler
+
+
+def categorical_cmap(nc, nsc, cmap_name="tab10"):
+    """
+    For a given colormap, adds subcolors of various saturation levels (technically different hues) for each color. Shamelessly adapted from https://stackoverflow.com/questions/47222585/matplotlib-generic-colormap-from-tab10
+
+    Parameters
+    ----------
+    nc : int
+        Number of colors
+    nsc : int
+        Number of subcolors
+    cmap_name : str, optional
+        Valid mpl colormap name, by default "tab10"
+    continuous : bool, optional
+        Is the colormap indexible?, by default False
+
+    Returns
+    -------
+    Colormap
+        Color map with the subcolors
+
+    Raises
+    ------
+    ValueError
+        Can't have more base colors than the number of possible hues in the colormap.
+    """
+    cmap = plt.get_cmap(cmap_name)
+
+    if nc > cmap.N:
+        raise ValueError("Too many categories for colormap.")
+    
+    #Determine if Continuous or Discrete Colormap
+    if cmap.N > 100:
+        continous = True
+    elif isinstance(cmap, mpl.colors.LinearSegmentedColormap):
+        continous = True
+    elif isinstance(cmap, mpl.colors.ListedColormap):
+        continous = False
+
+    #Get Category Colors
+    if continuous:
+        ccolors = cmap(np.linspace(0,1,nc))
+    else:
+        ccolors = cmap(np.arange(nc, dtype=int))
+
+    #Add Subcategory Colors
+    cols = np.zeros((nc*nsc, 3))
+    for i, c in enumerate(ccolors):
+        chsv = matplotlib.colors.rgb_to_hsv(c[:3])
+        arhsv = np.tile(chsv,nsc).reshape(nsc,3)
+        arhsv[:,1] = np.linspace(chsv[1],0.25,nsc)
+        arhsv[:,2] = np.linspace(chsv[2],1,nsc)
+        rgb = matplotlib.colors.hsv_to_rgb(arhsv)
+        cols[i*nsc:(i+1)*nsc,:] = rgb       
+    new_cmap = matplotlib.colors.ListedColormap(cols)
+
+    return new_cmap
 
 
 def savefig(fname, figure, **kwargs):

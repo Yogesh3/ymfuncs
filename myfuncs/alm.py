@@ -56,11 +56,17 @@ def lm2cl(alm, weights=None, normalize=True):
 
 
 
-def knox_formula_errors(power1, power2, fsky, ells, delta_ell, cross_power = None):
+def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None):
     """Probably in orphics"""
 
-    #Note that the power1 and power2 should include noise, but the cross should not.
-    return np.sqrt(1. / ((2. * ells + 1) * fsky * delta_ell ) * ((cross_power**2 if cross_power is not None else 0.) + power1 * power2) )
+    prefactor = 1. / ((2. * ells + 1) * fsky * delta_ell )
+
+    if auto2 is None:
+        return np.sqrt(prefactor * 2) * auto1
+
+    else:
+        #Note that the power1 and power2 should include noise, but the cross should not.
+        return np.sqrt(prefactor * ( (cross**2 if cross is not None else 0.)  +  auto1 * auto2) )
 
 
 
@@ -136,7 +142,7 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
     return field
 
 
-def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
+def calcSpectrum(map_set1, map_set2= None, wsp_name= None, binned_ells= None):
     """
     Calculates auto/cross spectrum from CAR maps/masks using pymaster.
 
@@ -150,11 +156,13 @@ def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
         [map2, mask2] (only applicable for cross spectrum), by default None
     wsp_name : str, optional
         Full path of the pymaster workspace object with the mode-coupling matrix, by default None
+    binned_ells : 1d array, optional
+        Left edges of ell bins, by default None
 
     Returns
     -------
-    1D array
-        auto/cross spectrum
+    1D array, 1D array
+        ell bandpowers and auto/cross spectrum
     """
     #Get Fields
     f1 = getField(map_set1[0], map_set1[1])
@@ -165,11 +173,21 @@ def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
 
     #Load MCM
     wsp = nmt.NmtWorkspace()
-    if wsp_name:
+    if wsp_name is not None:
         wsp.read_from(wsp_name)
+
+    else:
+        if binned_ells is not None:
+            bin_obj = nmt.NmtBin(ells= binned_ells)
+        else:
+            bin_obj = nmt.NmtBin(lmax= 4000+1, nlb= 1)
+
+        ells = bin_obj.get_effective_ells()
+
 
     #Coupled Spectrum
     Cl_coup = nmt.compute_coupled_cell(f1, f2)
+    Cl_coup = np.squeeze(Cl_coup)
 
     #Decoupled Spectrum
     if wsp_name:
@@ -179,4 +197,4 @@ def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
         return Cl_decoup
 
     else:
-        return Cl_coup
+        return ells, Cl_coup
