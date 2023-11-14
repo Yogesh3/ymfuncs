@@ -59,7 +59,7 @@ def calcMPI(Nsims, Nprocs):
 
 
 
-def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
+def Gatherv(comm, rank_data, Ntasks_tot, root_rank=0):
     """
     Wrapper for mpi4py's Gatherv. The main advantage is that this creates the receiving buffer for each rank, including the data type and full buffer size (taking into account the size of each array that each rank computed). This also works with distMPI, without requiring the user to call calcMPI directly.
 
@@ -67,8 +67,6 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
     ----------
     comm : communicator object
         MPI communicator
-    current_rank : int
-        Rank that's calling this function
     rank_data : ndarray
         Buffer that you're gathering for this rank
     Ntasks_tot : int
@@ -76,7 +74,7 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
 
     Returns
     -------
-    array
+    (Ntasks_tot, rank_data.shape) array
         Buffer returned by comm.Gatherv
 
     Raises
@@ -84,8 +82,11 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
     NotImplementedError
         This only works for certain data types
     """
-    #Get Some Parameters
+    #Get Rank Information
     Nranks = comm.Get_size()
+    current_rank = comm.Get_rank()
+
+    #Get Send Buffer Information
     indiv_array = rank_data[0]
     indiv_array_shape = list(indiv_array.shape)
     indiv_array_dtype = indiv_array.dtype
@@ -95,7 +96,7 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
         mpi_dtype = MPI.DOUBLE_COMPLEX
     elif indiv_array_dtype == np.double:
         mpi_dtype = MPI.DOUBLE
-    elif indiv_array_dtype == np.int:
+    elif indiv_array_dtype == np.int_:
         mpi_dtype = MPI.LONG
     elif indiv_array_dtype == np.intc:
         mpi_dtype = MPI.INT
@@ -103,12 +104,12 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
         raise NotImplementedError(f"Unimplemented translation between {indiv_array_dtype} and MPI's datatypes")
 
     #Create Receiving Buffer
-    if current_rank == 0:
+    if current_rank == root_rank:
         recevbuff = np.empty( [Ntasks_tot] + indiv_array_shape , dtype= indiv_array_dtype)
     else:
         recevbuff = None
 
-    #Get Buffer's Memory Info
+    #Get Receiving Buffer's Memory Info
     tasks_per_rank, task_displacements = calcMPI(Ntasks_tot, Nranks)
     displacements = np.prod(indiv_array_shape) * task_displacements[:-1]
     counts = np.prod(indiv_array_shape) * tasks_per_rank
@@ -120,36 +121,49 @@ def MPI_Gatherv(comm, current_rank, rank_data, Ntasks_tot, root_rank=0):
 
 
 
-def MPI_Reduce(comm, current_rank, array, root_rank=0):
-    """Just a wrapper for MPI Reduce (with MPI.SUM operation), but ignores NaN's.
+def Reduce(comm, array, op='mean', root_rank=0):
+    """Just a "wrapper" for MPI Reduce (doesn't actually call MPI's Reduce) but ignores NaN's. Supports several operations.
 
     Parameters
     ----------
     comm : MPI_Comm
         MPI communicator
-    current_rank : int
-        The current rank
     array : float
         Array to collect. Must be a numpy array
+    op : str, optional
+        Operation to be performed when combining arrays. One of ['mean', 'sum', 'min', 'max']. By default, 'mean'.
     root_rank : int, optional
-        Main rank that does the assembling, by default 0
+        Main rank that does the assembling. By default 0.
 
     Returns
     -------
     array or None
         The reduced numpy array if called on the main rank; None otherwise
     """
+    #Get Rank Information
+    Nranks = comm.Get_size()
+    current_rank = comm.Get_rank()
+
     #Initialize Receiving Buffer 
     recbuf = None
     if current_rank == root_rank:
-        Nranks = comm.Get_size()
         tot_shape = [Nranks] + list(array.shape)
         recbuf = np.zeros(tot_shape, dtype= array.dtype)
 
     comm.Gather(array, recbuf, root= root_rank)
 
+    #Reduce Operation
     if current_rank == root_rank:
-        return np.nansum(recbuf, axis=0)
+        if op == 'mean':
+            return np.nanmean(recbuf, axis=0)
+        elif op == 'sum':
+            return np.nansum(recbuf, axis=0)
+        elif op == 'min':
+            return np.nanmin(recbuf, axis=0)
+        elif op == 'max':
+            return np.nanmax(recbuf, axis=0)
+        else:
+            raise NotImplementedError("Unimplemented operation")
     else:
         return None
 
