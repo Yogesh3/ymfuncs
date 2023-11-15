@@ -194,7 +194,7 @@ def calcSpectrum(map_set1, map_set2= None, wsp_name= None, binned_ells= None):
         Cl_decoup = wsp.decouple_cell(Cl_coup)
         Cl_decoup = Cl_decoup[0,:]
 
-        return Cl_decoup
+        return Cl_decoup     # TODO: also return effective ells 
 
     else:
         return ells, Cl_coup

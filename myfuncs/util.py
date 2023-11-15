@@ -1,7 +1,8 @@
 import numpy as np
 from astropy import units as u
-# from falafel.utils import config
+from falafel.utils import config
 from orphics import cosmology, maps as omaps 
+import healpy as hp
 from classy_sz import Class
 
 def ell2ang(ell, angle_unit=None):
@@ -471,21 +472,22 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     
     
 
-def phi2kappa(phi, type= 'spectrum', ells= None):
+def phi2kappa(phi, ells= None, type= 'cl'):
 
     if ells is None:
         ells = np.arange(len(phi))
 
     factor = ells * (ells + 1.) / 2.
 
-    if type == 'spectrum':
+    if type == 'cl':
         kappa = factor**2 * phi
-    elif type == 'map':
-        kappa = factor**2 * phi
+    elif type == 'alm':
+        kappa = hp.almxfl(phi, factor)
     else:
         raise ValueError('Invalid "type" argument')
 
     return kappa
+
 
 
 def dl2cl(Dl, ells= None):
