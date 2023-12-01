@@ -8,13 +8,13 @@ def readTxt(fname):
 
     Returns: list
     """    
-    list = []
+    names_list = []
     
     with open(fname) as fobj:
         for row in fobj:
-            list.append(row.rstrip('\n'))
+            names_list.append(row.rstrip('\n'))
     
-    return list
+    return names_list
     
 
 def readMapFromFile(mapfile_name):
@@ -26,8 +26,12 @@ def readMapFromFile(mapfile_name):
     """
     
     with open(mapfile_name) as name_fobj:
-        mapname = name_fobj.readlines()[-1]
-        themap = readMapPrecisely(mapname)
+        for line in name_fobj:
+            if line[0] == '#':
+                continue
+            map_name = line.rstrip('\n')
+
+        themap = readMapPrecisely(map_name)
 
     return themap
 
@@ -41,7 +45,11 @@ def readAlmFromFile(almfile_name):
     """
 
     with open(almfile_name) as name_fobj:
-        alm_name = name_fobj.readlines()[0]
+        for line in name_fobj:
+            if line[0] == '#':
+                continue
+            alm_name = line.rstrip('\n')
+
         alm = readAlmPrecisely(alm_name)
 
     return alm
