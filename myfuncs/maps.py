@@ -1,4 +1,4 @@
-import orphics.maps
+from orphics.maps import fsky
 from pixell import curvedsky as cs, enmap
 import healpy as hp
 import numpy as np
@@ -9,7 +9,7 @@ def skyPercent(map):
     """
     Calculates the sky fraction of a map as a percent.
     """
-    return orphics.maps.fsky(map, threshold=0.0) * 100
+    return fsky(map, threshold=0.0) * 100
 
 
 def alm2pixmap(alms, footprint_map):
