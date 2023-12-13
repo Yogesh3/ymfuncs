@@ -159,7 +159,7 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
 
 
 
-def defaultClassyParams(cib_freqs = []):
+def defaultClassyParams():
     """
     Get default parameters used when getting classy_sz power spectra.
 
@@ -235,62 +235,7 @@ def defaultClassyParams(cib_freqs = []):
     p_hm_dict['perturb_sampling_stepsize']  = 0.005
     p_hm_dict['k_max_tau0_over_l_max'] = 5.
 
-    #CIB Parameters
-    p_CIB_dict = {}
-    p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
-    p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
-    p_CIB_dict['Emissivity index of sed'] = 1.75
-    p_CIB_dict['Power law index of SED at high frequency'] = 1.7
-    p_CIB_dict['Redshift evolution of L - M normalisation'] = 3.6
-    p_CIB_dict['Most efficient halo mass in Msun'] = 10**12.6
-    p_CIB_dict['Normalisation of L - M relation in [Jy MPc2/Msun]'] = 6.4e-8
-    p_CIB_dict['Size of of halo masses sourcing CIB emission'] = 0.5
-
-    #Establish CIB Frequencies
-    nu_list = {353, 545, 857}
-    for freq in cib_freqs:
-        nu_list.add(freq) 
-    nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
-
-    #Frequency Parameters
-    p_freq_dict = {}
-    p_freq_dict['cib_frequency_list_num'] = len(nu_list)
-    p_freq_dict['cib_frequency_list_in_GHz'] = nu_list_str
-
-    #Flux Cuts
-    cib_fcut_dict = {}
-
-    #Planck flux cut, Table 1 in https://arxiv.org/pdf/1309.0382.pdf
-    cib_fcut_dict['100'] = 400
-    cib_fcut_dict['143'] = 350
-    cib_fcut_dict['217'] = 225
-    cib_fcut_dict['353'] = 315
-    cib_fcut_dict['545'] = 350
-    cib_fcut_dict['857'] = 710
-    cib_fcut_dict['3000'] = 1000
-
-    def _make_flux_cut_list(cib_flux, nu_list):
-        """
-        Make a string of flux cut values for given frequency list to pass into class_sz
-        Beware: if frequency not in the flux_cut dictionary, it assigns 0
-        """
-        cib_flux_list = []
-        keys = list(cib_flux.keys())
-        for i,nu in enumerate(nu_list):
-            if str(nu) in keys:
-                cib_flux_list.append(cib_flux[str(nu)])
-            else:
-                cib_flux_list.append(0)
-        return cib_flux_list
-
-    #Format Flux Cuts
-    cib_flux_list = _make_flux_cut_list(cib_fcut_dict, nu_list)
-
-    #Add Flux Cuts
-    p_freq_dict['cib_Snu_cutoff_list [mJy]'] = str(list(cib_flux_list))[1:-1]
-    p_freq_dict['has_cib_flux_cut'] = 1
-
-    return {**p14_dict, **p_hm_dict, **p_CIB_dict, **p_freq_dict}
+    return {**p14_dict, **p_hm_dict}
 
 
 
@@ -350,7 +295,7 @@ def getClassyKappa(params={}):
 
     #Spectra 
     outspec = {}
-    outspec['output'] = 'lens_lens_1h,lens_lens_2h,len_lens_hf'
+    outspec['output'] = 'lens_lens_1h,lens_lens_2h,lens_lens_hf'
     if 'output' in params.keys():
         params.pop('output')      # TODO: make general classy_sz function
         # outspec['output'] = outspec['output'] + ',' + params.pop('output')      
@@ -387,17 +332,19 @@ def getClassyKappa(params={}):
 
 
     
-def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
+def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=False):
     """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
 
     Parameters
     ----------
     spectra : str
-        Which CIB spectra do you want? Options: 'auto', 'cross', 'both'
+        Can give just the CIB auto or also add in the CIB x lensing. Options: 'auto', 'cross', 'both'
     nu_list : float
         List of observing frequencies as numbers in GHz.
     params : dict, optional
         Dictionary of classy_sz parameters, by default empty
+    pop_params : dict, optional
+        Names of classy_sz parameters to ignore, by default empty
     emulFlag : bool, optional
         Use the cosmopower emulators?, by default False
 
@@ -407,17 +354,72 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
         Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string (i.e. 'freq' for the auto and 'freqxfreq' for the cross).
     """
 
-    #Get Parameters
-    default_params = defaultClassyParams(cib_freqs= nu_list)
+    #Get Default Parameters
+    default_params = defaultClassyParams()
 
-    if spectra.lower() not in ['both', 'cross', 'auto']:
-        raise ValueError("Your 'spectra' variable is incorrect. See docstring for accepted values.")
+    #CIB Parameters
+    p_CIB_dict = {}
+    p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
+    p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
+    p_CIB_dict['Emissivity index of sed'] = 1.75
+    p_CIB_dict['Power law index of SED at high frequency'] = 1.7
+    p_CIB_dict['Redshift evolution of L - M normalisation'] = 3.6
+    p_CIB_dict['Most efficient halo mass in Msun'] = 10**12.6
+    p_CIB_dict['Normalisation of L - M relation in [Jy MPc2/Msun]'] = 6.4e-8
+    p_CIB_dict['Size of of halo masses sourcing CIB emission'] = 0.5
+
+    #Establish CIB Frequencies
+    nu_list = {353, 545, 857}
+    for freq in extra_nu_list:
+        nu_list.add(freq) 
+    nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
+
+    #Frequency Parameters
+    p_freq_dict = {}
+    p_freq_dict['cib_frequency_list_num'] = len(nu_list)
+    p_freq_dict['cib_frequency_list_in_GHz'] = nu_list_str
+
+    #Flux Cuts
+    cib_fcut_dict = {}
+
+    #Planck flux cut, Table 1 in https://arxiv.org/pdf/1309.0382.pdf
+    cib_fcut_dict['100'] = 400
+    cib_fcut_dict['143'] = 350
+    cib_fcut_dict['217'] = 225
+    cib_fcut_dict['353'] = 315
+    cib_fcut_dict['545'] = 350
+    cib_fcut_dict['857'] = 710
+    cib_fcut_dict['3000'] = 1000
+
+    def _make_flux_cut_list(cib_flux, nu_list):
+        """
+        Make a string of flux cut values for given frequency list to pass into class_sz
+        Beware: if frequency not in the flux_cut dictionary, it assigns 0
+        """
+        cib_flux_list = []
+        keys = list(cib_flux.keys())
+        for i,nu in enumerate(nu_list):
+            if str(nu) in keys:
+                cib_flux_list.append(cib_flux[str(nu)])
+            else:
+                cib_flux_list.append(0)
+        return cib_flux_list
+
+    #Format Flux Cuts
+    cib_flux_list = _make_flux_cut_list(cib_fcut_dict, nu_list)
+
+    #Add Flux Cuts
+    p_freq_dict['cib_Snu_cutoff_list [mJy]'] = str(list(cib_flux_list))[1:-1]
+    p_freq_dict['has_cib_flux_cut'] = 1
+
 
     #Create Class Object
     M = Class()
-    
+
     #Add Spectra
     outspec = []
+    if spectra.lower() not in ['both', 'cross', 'auto']:
+        raise ValueError("Your 'spectra' variable is incorrect. See docstring for accepted values.")
     if spectra.lower() == 'both' or spectra == 'auto':
         outspec.append('cib_cib_1h,cib_cib_2h')
     if spectra.lower() == 'both' or spectra == 'cross':
@@ -425,9 +427,11 @@ def getClassyCIB(spectra, nu_list, params={}, emulFlag=False):
     M.set({'output': ','.join(outspec)})
 
     #Add Parameters
-    M.set(default_params)
-    if params:
-        M.set(params)
+    all_params = {**default_params, **p_freq_dict, **p_CIB_dict}
+    for parameter_name in pop_params:
+        all_params.pop(parameter_name, None) 
+    all_params = {**all_params, **params}
+    M.set(all_params)
             
     #Compute Spectra
     if emulFlag:
