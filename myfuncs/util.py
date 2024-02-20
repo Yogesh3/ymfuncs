@@ -4,6 +4,8 @@ from falafel.utils import config
 from orphics import cosmology, maps as omaps 
 import healpy as hp
 from classy_sz import Class
+import yaml
+import myfuncs as ym
 
 def ell2ang(ell, angle_unit=None):
     """Convert from harmonic mode ell to an angle with units.
@@ -339,9 +341,9 @@ def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=Fals
     ----------
     spectra : str
         Can give just the CIB auto or also add in the CIB x lensing. Options: 'auto', 'cross', 'both'
-    nu_list : float
-        List of observing frequencies as numbers in GHz.
-    params : dict, optional
+    extra_nu_list : iterable
+        List of observing frequencies as numbers in GHz. This is in addition to the default frequencies of 343, 545, and 857 GHz.
+    params : list, optional
         Dictionary of classy_sz parameters, by default empty
     pop_params : dict, optional
         Names of classy_sz parameters to ignore, by default empty
@@ -359,7 +361,8 @@ def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=Fals
 
     #CIB Parameters
     p_CIB_dict = {}
-    p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
+    # p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
+    p_CIB_dict['alpha'] =  0.36
     p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
     p_CIB_dict['Emissivity index of sed'] = 1.75
     p_CIB_dict['Power law index of SED at high frequency'] = 1.7
@@ -432,6 +435,10 @@ def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=Fals
         all_params.pop(parameter_name, None) 
     all_params = {**all_params, **params}
     M.set(all_params)
+
+    #Save Parameters in YAML File
+    with open(ym.paths['niagara'] + 'input_data/cib_params.yaml', 'w') as yamlfile:
+        yaml.dump(all_params, yamlfile)
             
     #Compute Spectra
     if emulFlag:

@@ -5,11 +5,11 @@ import numpy as np
 from astropy import units as u
 
 
-def skyPercent(map):
+def skyPercent(themap):
     """
     Calculates the sky fraction of a map as a percent.
     """
-    return fsky(map, threshold=0.0) * 100
+    return fsky(themap, threshold=0.0) * 100
 
 
 def alm2pixmap(alms, footprint_map):

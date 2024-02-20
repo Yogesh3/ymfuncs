@@ -178,7 +178,7 @@ def getBinning(binned_ells= None):
     
 
 
-def binTheory(spectra, wspname):
+def binTheory(spectra, wsp_name):
     wsp = nmt.NmtWorkspace()
     wsp.read_from(wsp_name)
 

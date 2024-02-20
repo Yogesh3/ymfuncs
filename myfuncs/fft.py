@@ -34,7 +34,7 @@ def fft2cl(fft, bin_edges, modlmap):
     Parameters
     ----------
     bin_edges : 1d array
-        Array of the edges of the ell bins
+        Array of the left edges of the ell bins
     fft : 2d array
         2D power spectra
     modlmap : 2d array
