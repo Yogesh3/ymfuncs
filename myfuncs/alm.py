@@ -219,11 +219,6 @@ def Map2Spectrum(map_set1, map_set2= None, wsp_name= None, binned_ells= None):
     else:
         f2 = getField(map_set1[0], map_set1[1])
 
-    #Load MCM
-    wsp = nmt.NmtWorkspace()
-    if wsp_name is not None:
-        wsp.read_from(wsp_name)
-
     # #Create Binning if No Pre-existing Workspace
     # else:
     #     try:
