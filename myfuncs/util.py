@@ -1,5 +1,6 @@
 import numpy as np
 from astropy import units as u
+from astropy.cosmology import Planck15
 from falafel.utils import config
 from orphics import cosmology, maps as omaps 
 import healpy as hp
@@ -522,8 +523,31 @@ def cl2dl(Cl, ells= None):
 
 
 
+def flux2Tcmb(flux_quantity, freq):
+    """
+    Convert from Janskys/steradians to micro-Kelvins
+    """
+    freq = int(freq) * u.GHz
+    equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
 
-def bin_cen2edg(centers, dbins= None):
+    Tcmb_quantity = flux_quantity * (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv)
+
+    return Tcmb_quantity
+
+
+def Tcmb2flux(Tcmb_quantity, freq):
+    """
+    Convert from micro-Kelvins to Janskys/steradians
+    """
+    freq = int(freq) * u.GHz
+    equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
+    flux_quantity = Tcmb_quantity * (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv)
+
+    return flux_quantity
+
+
+
+def bin_cen2edg(centers, delta= None):
     """
     Shifts from midpoints of bins to the edges of the bins (inclusive of the lower and upper endpoints).
 
@@ -531,7 +555,7 @@ def bin_cen2edg(centers, dbins= None):
     ----------
     centers : 1darray
         Midpoints of bins
-    dbins : 1darray, optional
+    delta : 1darray, optional
         Size of each bin if you have unevenly spaced bins. By default None
 
     Returns
@@ -539,9 +563,9 @@ def bin_cen2edg(centers, dbins= None):
     1darray
         Edges of the bins (including both the lowest and highest edges). Length is 1+len(centers)
     """
-    if dbins is None:
+    if delta is None:
         delta = centers[1] - centers[0]
-        dbins = np.ones(centers.shape) * delta
+    dbins = np.ones(centers.shape) * delta
 
     right_edges = centers - dbins/2
     edges = np.append(right_edges, right_edges[-1] + delta)  # doing this instead of centers[-1] * delta/2 avoids issues with odd deltas
@@ -585,3 +609,19 @@ def binning(binsize, xdata, ydata, start='midpoint'):
     ybins = np.nanmean(ybins.reshape(-1, binsize), axis=-1)
 
     return xbins, ybins
+
+
+
+def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None):
+    """Probably in orphics"""
+
+    prefactor = 1. / ((2. * ells + 1) * fsky * delta_ell )
+
+    if auto2 is None:
+        return np.sqrt(prefactor * 2) * auto1
+
+    else:
+        #Note that the power1 and power2 should include noise, but the cross should not.
+        return np.sqrt(prefactor * ( (cross**2 if cross is not None else 0.)  +  auto1 * auto2) )
+
+
