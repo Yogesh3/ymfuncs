@@ -56,20 +56,6 @@ def lm2cl(alm, weights=None, normalize=True):
 
 
 
-def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None):
-    """Probably in orphics"""
-
-    prefactor = 1. / ((2. * ells + 1) * fsky * delta_ell )
-
-    if auto2 is None:
-        return np.sqrt(prefactor * 2) * auto1
-
-    else:
-        #Note that the power1 and power2 should include noise, but the cross should not.
-        return np.sqrt(prefactor * ( (cross**2 if cross is not None else 0.)  +  auto1 * auto2) )
-
-
-
 def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= False):
     """
     Copied from orphics, but generalized to take 2 masks instead of only one. Both
@@ -237,75 +223,65 @@ def Map2Spectrum(map_set1, map_set2= None, wsp_name= None, binned_ells= None):
 
 
 def Map2Covmat(theory_list,
-               map_set1, map_set2= None, map_set3= None, map_set4= None,
+               map_set_list,
                spin_list = [0,0,0,0],
-               field_order= '1234',
-               mcm_wsp_path= None,
-               cov_wsp_path= None,
-               cov_wsp_savepath= None,
+            #    field_order= '1234',
+               mcm1_wsp_path= None,
+               mcm2_wsp_path= None,
+               coeff_wsp_path= None,
+               coeff_wsp_savepath= None,
                lmax= None ):
     
-    #Fill in Missing Info
-    if not map_set2:
-        map_set2 = map_set1
-    if not map_set3 and not map_set4:
-        map_set3 = map_set1
-        map_set4 = map_set2
-    elif map_set3 and not map_set4:
-        map_set4 = map_set3
-    elif not map_set3 and map_set4:
-        map_set3 = map_set4
-
-    #Organize Map Sets
-    map_set_dict = {}
-    map_set_dict['1'] = map_set1
-    map_set_dict['2'] = map_set2
-    map_set_dict['3'] = map_set3
-    map_set_dict['4'] = map_set4
+    # TODO: Make fields required only if recalculating the coupling coefficients
+    # TODO: Pack up the map_sets into a list
+    # TODO: Make mcm's mandatory
 
     #Get Fields
-    fields_dict = {}
-    for i, map_set in map_set_dict.items():
-        fields_dict[i] = getField(map_set[0], map_set[1]) 
-
-    #Order Fields
     fields_list = []
-    for mapid in field_order:
-        fields_list.append(fields_dict[mapid])
+    for map_set in map_set_list:
+        fields_list.append( getField(map_set[0], map_set[1]) )
 
-    #Load MCM Workspace
-    mcm_wsp = nmt.NmtWorkspace()
-    if mcm_wsp_path:
-        mcm_wsp.read_from(mcm_wsp_path)
+    #Load MCM Workspaces
+    mcm1_wsp = nmt.NmtWorkspace()
+    if mcm1_wsp_path:
+        mcm1_wsp.read_from(mcm1_wsp_path)
+    mcm2_wsp = nmt.NmtWorkspace()
+    if mcm2_wsp_path:
+        mcm2_wsp.read_from(mcm2_wsp_path)
+    # TODO: Add option to calculate the mcms if one is not provided
 
     #Extract Nells
-    if mcm_wsp_path:
-        Nbins = mcm_wsp.get_bandpower_windows().shape[1]      # Only works for spin-0 fields!
+    if mcm1_wsp_path:
+        Nbins = mcm1_wsp.get_bandpower_windows().shape[1]      # Only works for spin-0 fields!
     else:
-        raise ValueError("Need 'lmax' if you aren't going to give a workspace")
+        if not lmax:
+            raise ValueError("Need 'lmax' if you aren't going to give a workspace")
 
-    #Load Covariance Workspace
-    cov_wsp = nmt.NmtCovarianceWorkspace()
-    if cov_wsp_path:
-        cov_wsp.read_from(cov_wsp_path)
+    #Load Coupling Coefficient Workspace
+    coeff_wsp = nmt.NmtCovarianceWorkspace()
+    if coeff_wsp_path:
+        coeff_wsp.read_from(coeff_wsp_path)
 
     #Calculate Coupling Coefficients
     else:
         if not lmax:
             lmax = 4000
-        cov_wsp.compute_coupling_coefficients(*fields_list, lmax= lmax)
+        print("Calculating coupling coefficients")
+        coeff_wsp.compute_coupling_coefficients(*fields_list, lmax= lmax)
+        # coeff_wsp.compute_coupling_coefficients(*fields_list)
 
-        if cov_wsp_savepath:
-            cov_wsp.write_to(cov_wsp_savepath)
+        if coeff_wsp_savepath:
+            coeff_wsp.write_to(coeff_wsp_savepath)
         else:
             print("Not saving the coupling coefficients that I just worked so hard to calculate...")
 
     #Extract Covariance Matrix
-    general_covmat = nmt.gaussian_covariance(cov_wsp,
+    general_covmat = nmt.gaussian_covariance(coeff_wsp,
                                              *spin_list,
                                              *theory_list,
-                                             mcm_wsp, wb= mcm_wsp).reshape([Nbins, 1,
-                                                                            Nbins, 1])
+                                             mcm1_wsp,
+                                             wb= mcm2_wsp).reshape([Nbins, 1,
+                                                                    Nbins, 1])
     covmat = general_covmat[:, 0, :, 0]
 
     return covmat

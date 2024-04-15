@@ -4,6 +4,7 @@ from matplotlib_inline.backend_inline import set_matplotlib_formats
 set_matplotlib_formats('svg')
 from pixell import enplot, colorize
 import numpy as np
+from myfuncs import util as yutil
 
 
 def eshow(*plotslist, **user_kwargs): 
@@ -72,6 +73,24 @@ def getCurrentColors():
 
 
 
+def set_cycler(cycler, ax= None):
+    """
+    Sets the cycler either globally or for a specified axis.
+
+    Parameters
+    ----------
+    cycler : cycler obj
+        General cycler object
+    ax : Axis obj, optional
+        Axis to set the cycle. By default None
+    """
+    if ax is None:
+        plt.rcParams['axes.prop_cycle'] = cycler
+    else:
+        ax.set_prop_cycle(cycler)
+
+
+
 def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin=0, vmax=1):
     """Get iterable color cycler to pass to plt.rcParams["axes.prop_cycle"]. Shamelessly adapted from https://stackoverflow.com/questions/30079590/use-matplotlib-color-map-for-color-cycle
 
@@ -126,6 +145,7 @@ def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin
         return cycler
 
 
+
 def categorical_cmap(nc, nsc, cmap_name="tab10"):
     """
     For a given colormap, adds subcolors of various saturation levels (technically different hues) for each color. Shamelessly adapted from https://stackoverflow.com/questions/47222585/matplotlib-generic-colormap-from-tab10
@@ -138,13 +158,11 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
         Number of subcolors
     cmap_name : str, optional
         Valid mpl colormap name, by default "tab10"
-    continuous : bool, optional
-        Is the colormap indexible?, by default False
 
     Returns
     -------
     Colormap
-        Color map with the subcolors
+        Iterable color map with the subcolors
 
     Raises
     ------
@@ -184,6 +202,46 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
     return new_cmap
 
 
+
+def plotCovmat(Covmat, fields_names_list):
+    
+    #Get Covmat Info
+    Cls_names = yutil.Fields2Cls(fields_names_list)
+    N_Cls = len(Cls_names)
+    cov_cls2indices_dict = yutil.Fields2Indices(fields_names_list)
+
+    fig, ax = plt.subplots( N_Cls, N_Cls, 
+                            figsize = (10, 10),
+                            sharex = True,
+                            sharey = True)
+    
+    #Plot Individual Covmats on the Large Covmat Canvas
+    for iCl in Cls_names:
+        for jCl in Cls_names:
+
+            #Get Individual Covmat
+            indiv_covmat = yutil.getIndividualCovmat(iCl, jCl, Covmat, fields_names_list)
+            i, j = cov_cls2indices_dict[f'{iCl},{jCl}']
+
+            #Plot Individual Covmat
+            ax[i,j].imshow(indiv_covmat, cmap='RdBu', vmin= Covmat.min, vmax= Covmat.max)
+
+            #Adjust Individual Covmat's Axis
+            ax[i,j].set_aspect('equal')
+            ax.xaxis.set_label_position('top')
+            ax[i,j].tick_params(axis='both', 
+                                direction='in',
+                                top= True, right= True,
+                                labelbottom= False, labelleft= False)
+
+    ax[0,0].set_ylabel(rf'{iCl},{jCl}')
+    plt.subplots_adjust(wspace=0, hspace=0)
+    plt.colorbar()
+
+    return fig, ax
+
+
+
 def savefig(fname, figure, **kwargs):
     #Default Options
     default_options = {}
@@ -192,3 +250,75 @@ def savefig(fname, figure, **kwargs):
 
     options = { **default_options, **kwargs }
     figure.savefig(fname, **options)
+
+
+
+def set_rcParams(**kwargs):
+    #Default Changes
+    mpl.rcParams['axes.labelsize'] = 'large'
+
+    #Update With Custom Parameter Changes
+    mpl.rcParams.update(kwargs)
+
+
+
+def ratioPlot(xs= None, 
+              yref_dict={},
+              ylines_dict={},
+              ref_kwargs={},
+              lines_kwargs={},
+              ratio_type = 'percent discrepancy'
+             ):
+
+    valid_ratios = ['percent discrepancy', 'ratio']
+    if ratio_type not in valid_ratios:
+        raise ValueError(f"The only valid ratios are {valid_ratios}")
+
+    #Setup
+    set_rcParams()
+    fig, ax = plt.subplots(1,2, figsize=(15,5))
+
+    #Plot Data
+    if xs:
+        #Absolute Plot
+        for ylabel, yline in ylines_dict.items():
+            ax[0].plot(xs, yline, label= ylabel, **lines_kwargs)
+        for ref_label, ref_line in yref_dict.items():
+            ax[0].plot(xs, ref_line, color='black', label= ref_label, **ref_kwargs)
+
+        #Relative Plot
+        for ylabel, yline in ylines_dict.items():
+            if ratio_type == 'percent discrepancy':
+                ax[1].plot(xs, ( yline - ref_line) / ref_line  * 100, label= ylabel, **lines_kwargs)
+            elif ratio_type == 'ratio':
+                ax[1].plot(xs,  yline / ref_line  * 100, label= ylabel, **lines_kwargs)
+    
+    #Plot Horizontal Line on Relative Plot
+    if ratio_type == 'percent discrepancy':
+        ax[1].axhline(y= 0, color='black')
+    elif ratio_type == 'ratio':
+        ax[1].axhline(y= 1, color='black')
+
+    #Trimmings: Absolute Plot
+    ax[0].set_ylabel(r'$C_{\ell}$')
+    ax[0].set_xlabel(r'$\ell$')
+    ax[0].grid()
+    ax[0].legend()
+
+    #Trimmings: Relative Plot
+    if ratio_type == 'percent discrepancy':
+        ax[1].set_title('Percent Discrepancy')
+        ax[1].set_ylabel('[%]')
+        if xs:
+            ax[1].set_ylabel(rf'$(C_{{\ell}} - C_{{\ell}}^{{ {list(yref_dict)[0]} }} )/ C_{{\ell}}^{{ {list(yref_dict)[0]} }} \; [\%]$')
+    elif ratio_type == 'ratio':
+        ax[1].set_title('Ratios')
+        ax[1].set_ylabel('[%]')
+        if xs:
+            ax[1].set_ylabel(rf'$C_{{\ell}} / C_{{\ell}}^{{ {list(yref_dict)[0]} }} \; [\%]$')
+    ax[1].set_xlabel(r'$\ell$')
+    ax[1].grid(which='both')
+    ax[1].tick_params(which='both')
+    ax[1].legend()
+
+    return fig, ax

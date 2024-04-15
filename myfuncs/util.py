@@ -8,6 +8,108 @@ from classy_sz import Class
 import yaml
 import myfuncs as ym
 
+def closest_match(array, reference, return_indices= False):
+    """
+    Find the values in a reference array that most closely match an aribitrary array. Works for unequal sizes for each array.
+
+    Parameters
+    ----------
+    array : 1darray
+        Arbitrary array
+    reference : 1darray
+        Reference array
+    return_indices : bool, optional
+        Whether or not to return the reference array indices that correspond to the matched elements. By default, False
+
+    Returns
+    -------
+    1darray
+        Array of values from reference array that most closely match the elements in the arbitrary array.
+    list, optional 
+        List of indices in the reference array that correspond to the matched elements
+    """
+    matched_array = []
+    matched_indices = []
+
+    for othervalue in array:
+        matched_index = ( np.abs(reference - othervalue) ).argmin()
+        matched_indices.append(matched_index)
+        matched_array.append(reference[matched_index])
+
+    matched_array = np.array(matched_array)
+
+    if return_indices:
+        return matched_array, matched_indices
+    else:
+        return matched_array
+
+
+
+def bin_cen2edg(centers, delta= None):
+    """
+    Shifts from midpoints of bins to the edges of the bins (inclusive of the lower and upper endpoints).
+
+    Parameters
+    ----------
+    centers : 1darray
+        Midpoints of bins
+    delta : 1darray, optional
+        Size of each bin if you have unevenly spaced bins. By default None
+
+    Returns
+    -------
+    1darray
+        Edges of the bins (including both the lowest and highest edges). Length is 1+len(centers)
+    """
+    if delta is None:
+        delta = centers[1] - centers[0]
+    dbins = np.ones(centers.shape) * delta
+
+    right_edges = centers - dbins/2
+    edges = np.append(right_edges, right_edges[-1] + delta)  # doing this instead of centers[-1] * delta/2 avoids issues with odd deltas
+
+    return edges
+
+
+def bin_edg2cen(edges):
+    """
+    Shifts from the edges of bins to their midpoints. Works for unevenly sized bins.
+
+    Parameters
+    ----------
+    edges : 1darray
+        Edges of the bins, including the left edge of the first bin and right edge of the last bin.
+
+    Returns
+    -------
+    1darray
+        Midponts of the bins. Length is len(edges) - 1.
+    """
+    return (edges[1:] + edges[:-1]) / 2
+
+
+def binning(binsize, xdata, ydata, start='midpoint'):
+    """
+    Bins x and y data. Handles NaNs just fine. Only works for bins of equal length. For arbitrary or uneven spacing (e.g. log), use orphics.
+    """
+
+    #Bin xdata
+    if start.lower() == 'midpoint':
+        midpoint = binsize//2 - 1              # midpoint if binsize = odd and to the left of midpoint if binsize = even
+        xbins = xdata[midpoint : (xdata.size//binsize) * binsize : binsize]
+    elif start.lower() == 'left':
+        xbins = xdata[: (xdata.size//binsize) * binsize : binsize] 
+    else:
+        raise ValueError('Need a valid')
+    
+    #Bin ydata
+    ybins = ydata[:(ydata.size//binsize) * binsize]    # drop the last bin if it's too small
+    ybins = np.nanmean(ybins.reshape(-1, binsize), axis=-1)
+
+    return xbins, ybins
+
+
+
 def ell2ang(ell, angle_unit=None):
     """Convert from harmonic mode ell to an angle with units.
 
@@ -125,7 +227,7 @@ def percentDiscrepancy(exp, ref):
 
 
 def SN(signal, noise):
-    return np.sqrt(np.sum( signal**2 / noise**2 ))
+    return np.sqrt(np.nansum( signal**2 / noise**2 ))
 
 
 
@@ -161,6 +263,10 @@ def get_theory_dicts(nells=None,lmax=9000,grad=True):
     return ls, unlensedcls, ucls, tcls
 
 
+
+#################################################################################################
+# Class_sz
+#################################################################################################
 
 def defaultClassyParams():
     """
@@ -335,7 +441,12 @@ def getClassyKappa(params={}):
 
 
     
-def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=False):
+def getClassyCIB(spectra, 
+                 extra_nu_list,
+                 params={}, 
+                 pop_params={}, 
+                 emulFlag=False, 
+                 save_to_yaml=False):
     """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
 
     Parameters
@@ -438,8 +549,9 @@ def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=Fals
     M.set(all_params)
 
     #Save Parameters in YAML File
-    with open(ym.paths['niagara'] + 'input_data/cib_params.yaml', 'w') as yamlfile:
-        yaml.dump(all_params, yamlfile)
+    if save_to_yaml:
+        with open(ym.paths['niagara project'] + 'input_data/cib_params.yaml', 'w') as yamlfile:
+            yaml.dump(all_params, yamlfile)
             
     #Compute Spectra
     if emulFlag:
@@ -458,7 +570,7 @@ def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=Fals
     Cls_dict = {}
     #Cycle Through CIB Spectra
     for spec_key, Dl_dict in Dl_spectra.items():
-        if spec_key.lower() in ['cross', 'both']:
+        if spec_key.lower() == 'cross':
             freq_list = sort_str_list( list(Dl_dict.keys()) )
         else:
             freq_list = Dl_dict.keys()
@@ -483,6 +595,10 @@ def getClassyCIB(spectra, extra_nu_list, params={}, pop_params={}, emulFlag=Fals
     return ells, Cls_dict
     
     
+
+#################################################################################################
+# Power Spectra and Maps
+#################################################################################################
 
 def phi2kappa(phi, ells= None, type= 'cl'):
 
@@ -547,71 +663,6 @@ def Tcmb2flux(Tcmb_quantity, freq):
 
 
 
-def bin_cen2edg(centers, delta= None):
-    """
-    Shifts from midpoints of bins to the edges of the bins (inclusive of the lower and upper endpoints).
-
-    Parameters
-    ----------
-    centers : 1darray
-        Midpoints of bins
-    delta : 1darray, optional
-        Size of each bin if you have unevenly spaced bins. By default None
-
-    Returns
-    -------
-    1darray
-        Edges of the bins (including both the lowest and highest edges). Length is 1+len(centers)
-    """
-    if delta is None:
-        delta = centers[1] - centers[0]
-    dbins = np.ones(centers.shape) * delta
-
-    right_edges = centers - dbins/2
-    edges = np.append(right_edges, right_edges[-1] + delta)  # doing this instead of centers[-1] * delta/2 avoids issues with odd deltas
-
-    return edges
-
-
-def bin_edg2cen(edges):
-    """
-    Shifts from the edges of bins to their midpoints. Works for unevenly sized bins.
-
-    Parameters
-    ----------
-    edges : 1darray
-        Edges of the bins, including the left edge of the first bin and right edge of the last bin.
-
-    Returns
-    -------
-    1darray
-        Midponts of the bins. Length is len(edges) - 1.
-    """
-    return (edges[1:] + edges[:-1]) / 2
-
-
-def binning(binsize, xdata, ydata, start='midpoint'):
-    """
-    Bins x and y data. Handles NaNs just fine. Only works for bins of equal length. For arbitrary or uneven spacing (e.g. log), use orphics.
-    """
-
-    #Bin xdata
-    if start.lower() == 'midpoint':
-        midpoint = binsize//2 - 1              # midpoint if binsize = odd and to the left of midpoint if binsize = even
-        xbins = xdata[midpoint : (xdata.size//binsize) * binsize : binsize]
-    elif start.lower() == 'left':
-        xbins = xdata[: (xdata.size//binsize) * binsize : binsize] 
-    else:
-        raise ValueError('Need a valid')
-    
-    #Bin ydata
-    ybins = ydata[:(ydata.size//binsize) * binsize]    # drop the last bin if it's too small
-    ybins = np.nanmean(ybins.reshape(-1, binsize), axis=-1)
-
-    return xbins, ybins
-
-
-
 def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None):
     """Probably in orphics"""
 
@@ -625,3 +676,110 @@ def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None
         return np.sqrt(prefactor * ( (cross**2 if cross is not None else 0.)  +  auto1 * auto2) )
 
 
+    
+#################################################################################################
+# Covariance Matrix
+#################################################################################################
+
+def Fields2Cls(probes_list):
+    #Fields -> Cls Matrix 
+    Cls_list = []
+    for i, probe1 in enumerate(probes_list):
+        for j, probe2 in enumerate(probes_list):
+            if j >= i:
+                Cls_list.append( f'{probe1}x{probe2}' )
+                
+    return Cls_list
+
+
+def Cls2Indices(Cls_list):
+    #Cls Matrix -> Covmat
+    probe_to_indices = {}
+    for i, iCl in enumerate(Cls_list):
+        for j, jCl in enumerate(Cls_list):
+            probe_to_indices[f'{iCl},{jCl}'] = (i,j)
+            
+    return probe_to_indices
+
+
+def Fields2Indices(probes_list):
+    #Fields -> Cls Matrix 
+    Cls_list = Fields2Cls(probes_list)
+         
+    #Cls Matrix -> Covmat
+    cov_name_to_indices = Cls2Indices(Cls_list)
+
+    return cov_name_to_indices
+
+    
+def getIndividualCovmat(Cl1, Cl2, big_covmat, probes_list):    
+    #Get Conversion Between Probe Name and Covmat Index
+    probes2indices = Fields2Indices(probes_list)
+    
+    #Calculate Length of Individual Covmat
+    N_probes = len(probes_list)
+    N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
+    indiv_covmat_len = int( len(big_covmat) / N_Cls )
+    
+    #Get Individual Covmat
+    i, j = probes2indices[f'{Cl1},{Cl2}']
+    indiv_covmat = big_covmat[i*indiv_covmat_len : (i+1)*indiv_covmat_len  ,  j*indiv_covmat_len : (j+1)*indiv_covmat_len]
+
+    return indiv_covmat
+
+
+
+def cov2corr(covmat):
+    """
+    Converts individual covariance matrix to a correlation matrix. Does not work for a super matrix of covariance matrices.
+
+    Parameters
+    ----------
+    covmat : 2d array
+        Covariance matrix of side length N_ells
+
+    Returns
+    -------
+    2d array
+        Correlation matrix
+    """
+    variances = np.diag(covmat)
+    corr = covmat / np.sqrt(np.outer(variances, variances))
+    
+    return corr
+
+
+
+def superCov2Corr(Covmat, fields_names_list):
+    """
+    Converts large covariance matrix (comprised of several smaller covmats) into a large correlation matrix (where each small covmat is normalized to that small covmat's diagonal)
+
+    Parameters
+    ----------
+    Covmat : 2d array
+        Square array of side N_ell * N_indivual_covmats
+    fields_names_list : list
+        List of names of the fields whose cross spectra's covariances are encapsulated in this super Covmat. This assumes that the Covmat has the covariances between all of the cross spectra possible between these fields. If your Covmat contains only a subset of all possible covariances, too bad.
+
+    Returns
+    -------
+    2d array
+        Correlation matrix
+    """    
+    #Get Covmat Info
+    Cls_names = yutil.Fields2Cls(fields_names_list)
+    N_Cls = len(Cls_names)
+    cov_cls2indices_dict = yutil.Fields2Indices(fields_names_list)
+
+    Corr = np.zeros(Covmat.shape())
+    for iCl in Cls_names:
+        for jCl in Cls_names:
+
+            #Get Individual Covmat and Its Indices
+            indiv_covmat = yutil.getIndividualCovmat(iCl, jCl, Covmat, fields_names_list)
+            i, j = cov_cls2indices_dict[f'{iCl},{jCl}']
+
+            #Get Correlation Matrix
+            Corr[i,j] = cov2corr(Covmat[i,j])
+
+    return Corr

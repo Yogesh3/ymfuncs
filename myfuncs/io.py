@@ -1,6 +1,8 @@
 import healpy as hp
 from pixell import enmap
 import numpy as np
+import os
+
 
 def readTxt(fname):
     """
@@ -16,6 +18,7 @@ def readTxt(fname):
     
     return names_list
     
+
 
 def readMapFromFile(mapfile_name):
     """
@@ -36,6 +39,7 @@ def readMapFromFile(mapfile_name):
     return themap
 
 
+
 def readAlmFromFile(almfile_name):
     """
     Reads in single alm whose filename is in a text file. Casts to calculation precision.
@@ -53,6 +57,7 @@ def readAlmFromFile(almfile_name):
         alm = readAlmPrecisely(alm_name)
 
     return alm
+
 
 
 def readMapPrecisely(mapfile_name):
@@ -76,6 +81,7 @@ def readMapPrecisely(mapfile_name):
     return themap
 
 
+
 def readAlmPrecisely(almfile_name):
     """
     Reads in single alm with calculation precision.
@@ -95,6 +101,7 @@ def readAlmPrecisely(almfile_name):
     alm = np.cdouble(alm)
 
     return alm
+
 
 
 def getProjectDir(machinename):
@@ -117,3 +124,21 @@ def getProjectDir(machinename):
         path = '/pscratch/sd/y/yogesh3/'
 
     return path
+
+
+
+def getBasename(pathname_with_extension):
+    """
+    Gets the name of a file without the extension. This is equivalent to pathlib.Path.stem, but that only works for Python 3.4+.
+
+    Parameters
+    ----------
+    pathname_with_extension : str
+        Path to the file. Can be a full path or just the file name with the extension.
+
+    Returns
+    -------
+    str
+        Name of the file without the extension.
+    """
+    return os.path.splitext(os.path.basename(pathname_with_extension))[0]
