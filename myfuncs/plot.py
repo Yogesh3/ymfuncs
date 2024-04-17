@@ -256,6 +256,8 @@ def savefig(fname, figure, **kwargs):
 def set_rcParams(**kwargs):
     #Default Changes
     mpl.rcParams['axes.labelsize'] = 'large'
+    mpl.rcParams['legend.fontsize'] = 'large'
+    mpl.rcParams['figure.figsize'] = [8, 6]
 
     #Update With Custom Parameter Changes
     mpl.rcParams.update(kwargs)

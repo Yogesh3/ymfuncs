@@ -96,7 +96,7 @@ def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= F
 
 
 
-def getField(signal_map, mask, lmax=4000, **user_kwargs):
+def getField(signal_map, mask, lmax=4000, lensingFlag=False, **user_kwargs):
     """Calculates the pymaster field for a given map and its mask. Has several keyword arguments.
 
     Parameters
@@ -107,6 +107,8 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
         Mask
     lmax : int, optional
         Ell max for power spectrum, by default 4000
+    lensingflag : bool, optional
+        Should I square the CMB mask to create the effective kappa mask? By default False
 
     Returns
     -------
@@ -123,7 +125,10 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
     #Merge keyword arguments
     kwargs = {**standard_kwargs, **user_kwargs}
 
-    field = nmt.NmtField(mask, [signal_map], wcs= mask.wcs, **kwargs)
+    if lensingFlag:
+        field = nmt.NmtField(mask**2, [signal_map], wcs= mask.wcs, **kwargs)
+    else:
+        field = nmt.NmtField(mask, [signal_map], wcs= mask.wcs, **kwargs)
 
     return field
 
