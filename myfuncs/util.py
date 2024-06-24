@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 from astropy import units as u
 from astropy.cosmology import Planck15
 from falafel.utils import config
@@ -28,6 +29,9 @@ def closest_match(array, reference, return_indices= False):
     list, optional 
         List of indices in the reference array that correspond to the matched elements
     """
+    #Initializations
+    array = np.array(array)
+    reference = np.array(reference)
     matched_array = []
     matched_indices = []
 
@@ -221,6 +225,34 @@ def sort_str_list(l):
 
 
 
+def get_methods(object, spacing=20):
+    """
+    Print the methods of an object with descriptions. Copied/pasted from https://stackoverflow.com/questions/34439/finding-what-methods-a-python-object-has.
+
+    Parameters
+    ----------
+    object : object type
+        The object you want the methods of
+    spacing : int, optional
+        _description_. By default 20
+    """
+
+    methodList = []
+    for method_name in dir(object):
+        try:
+            if callable(getattr(object, method_name)):
+                methodList.append(str(method_name))
+        except Exception:
+            methodList.append(str(method_name))
+    processFunc = (lambda s: ' '.join(s.split())) or (lambda s: s)
+    for method in methodList:
+        try:
+            print(str(method.ljust(spacing)) + ' ' + processFunc(str(getattr(object, method).__doc__)[0:90]))
+        except Exception:
+            print(method.ljust(spacing) + ' ' + ' getattr() failed')
+
+
+
 def percentDiscrepancy(exp, ref):
     return (exp - ref) / ref * 100
 
@@ -228,6 +260,10 @@ def percentDiscrepancy(exp, ref):
 
 def SN(signal, noise):
     return np.sqrt(np.nansum( signal**2 / noise**2 ))
+
+
+def cumSN(signal, noise):
+    return np.sqrt(np.nancumsum( signal**2 / noise**2 ))
 
 
 
@@ -293,7 +329,8 @@ def defaultClassyParams():
     p14_dict['k_pivot'] = 0.05
     p14_dict['tau_reio'] = 0.0925
     p14_dict['N_ncdm'] = 1
-    p14_dict['N_ur'] = 0.00641
+    p14_dict['omega_ncdm'] = 0.00064
+    p14_dict['N_ur'] = 2.0328
     p14_dict['deg_ncdm'] = 3
     p14_dict['m_ncdm'] = 0.02
     p14_dict['T_ncdm'] = 0.71611
@@ -309,7 +346,7 @@ def defaultClassyParams():
     p_hm_dict['pressure_profile_epsabs'] = 1.e-8
     p_hm_dict['pressure_profile_epsrel'] = 1.e-3
     # HOD parameters for CIB
-    p_hm_dict['M_min_HOD'] = pow(10.,10)  # was M_min_HOD_cib
+    p_hm_dict['M_min_HOD_cib'] = pow(10.,10)  # was M_min_HOD_cib
 
     #Grid Parameters
     # Mass bounds
@@ -348,7 +385,9 @@ def defaultClassyParams():
 
 
 
-def getClassyKappa(params={}):
+def getClassyKappa(params={},
+                   pop_params={}, 
+                   save_to_yaml= False):
     """
     Return kappa auto spectrum from classy_sz.
 
@@ -356,6 +395,10 @@ def getClassyKappa(params={}):
     ----------
     params : dict, optional
         Any parameters you want to pass to classy_sz, by default {}
+    pop_params : dict, optional
+        Names of classy_sz parameters to ignore, by default empty
+    save_to_yaml : bool, optional
+        Save all of the set parameters to a yaml file on niagara project, by default False
 
     Returns
     -------
@@ -405,20 +448,28 @@ def getClassyKappa(params={}):
     #Spectra 
     outspec = {}
     outspec['output'] = 'lens_lens_1h,lens_lens_2h,lens_lens_hf'
-    if 'output' in params.keys():
-        params.pop('output')      # TODO: make general classy_sz function
+    # if 'output' in params.keys():
+    #     params.pop('output')      # TODO: make general classy_sz function
         # outspec['output'] = outspec['output'] + ',' + params.pop('output')      
 
     #Create Class Object
     M = Class()
+    
+    #Pop Parameterss
+    all_params = {**default_params, **outspec}
+    for parameter_name in pop_params:
+        all_params.pop(parameter_name, None) 
 
     #Add Parameters
-    M.set(default_params)
-    M.set(outspec)
-    if params:
-        M.set(params)
+    all_params = {**all_params, **params}
         
+    #Save Parameters in YAML File
+    if save_to_yaml:
+        with open(ym.paths['niagara project'] + 'input_data/kappa_params.yaml', 'w') as yamlfile:
+            yaml.dump(all_params, yamlfile)
+
     #Compute Power Spectra
+    M.set(all_params)
     M.compute()
     Dl_kappa_dict = M.cl_kk()
     ells = np.array(Dl_kappa_dict['ell'])
@@ -442,7 +493,7 @@ def getClassyKappa(params={}):
 
     
 def getClassyCIB(spectra, 
-                 extra_nu_list,
+                 nu_list= {353, 545, 857},
                  params={}, 
                  pop_params={}, 
                  emulFlag=False, 
@@ -461,6 +512,8 @@ def getClassyCIB(spectra,
         Names of classy_sz parameters to ignore, by default empty
     emulFlag : bool, optional
         Use the cosmopower emulators?, by default False
+    save_to_yaml : bool, optional
+        Save all of the set parameters to a yaml file on niagara project, by default False
 
     Returns
     -------
@@ -474,19 +527,16 @@ def getClassyCIB(spectra,
     #CIB Parameters
     p_CIB_dict = {}
     # p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
-    p_CIB_dict['alpha'] =  0.36
-    p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
-    p_CIB_dict['Emissivity index of sed'] = 1.75
-    p_CIB_dict['Power law index of SED at high frequency'] = 1.7
-    p_CIB_dict['Redshift evolution of L - M normalisation'] = 3.6
-    p_CIB_dict['Most efficient halo mass in Msun'] = 10**12.6
-    p_CIB_dict['Normalisation of L - M relation in [Jy MPc2/Msun]'] = 6.4e-8
-    p_CIB_dict['Size of of halo masses sourcing CIB emission'] = 0.5
+    p_CIB_dict['Redshift_evolution_of_dust_temperature'] =  0.36
+    p_CIB_dict['Dust_temperature_today_in_Kelvins'] = 24.4
+    p_CIB_dict['Emissivity_index_of_sed'] = 1.75
+    p_CIB_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7
+    p_CIB_dict['Redshift_evolution_of_L_-_M_normalisation'] = 3.6
+    p_CIB_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.6
+    p_CIB_dict['Normalisation_of_L_-_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8
+    p_CIB_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.5
 
     #Establish CIB Frequencies
-    nu_list = {353, 545, 857}
-    for freq in extra_nu_list:
-        nu_list.add(freq) 
     nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
 
     #Frequency Parameters
@@ -539,14 +589,15 @@ def getClassyCIB(spectra,
         outspec.append('cib_cib_1h,cib_cib_2h')
     if spectra.lower() == 'both' or spectra == 'cross':
         outspec.append('lens_cib_1h,lens_cib_2h')
-    M.set({'output': ','.join(outspec)})
+    outspec_dict = {'output': ','.join(outspec)}
 
     #Add Parameters
-    all_params = {**default_params, **p_freq_dict, **p_CIB_dict}
+    all_params = {**default_params, **p_freq_dict, **p_CIB_dict, **outspec_dict}
     for parameter_name in pop_params:
         all_params.pop(parameter_name, None) 
     all_params = {**all_params, **params}
     M.set(all_params)
+    # import pdb; pdb.set_trace()
 
     #Save Parameters in YAML File
     if save_to_yaml:
@@ -557,6 +608,8 @@ def getClassyCIB(spectra,
     if emulFlag:
         M.compute_class_szfast()
     else:
+        print("Running class_sz calculations...")
+        sys.stdout.flush()
         M.compute()
     
     #Extract Spectra
@@ -565,6 +618,14 @@ def getClassyCIB(spectra,
         Dl_spectra['auto'] = M.cl_cib_cib()
     if spectra.lower() == 'both' or spectra == 'cross':
         Dl_spectra['cross'] = M.cl_lens_cib()
+
+    #Debugging
+    # debug_ell = np.asarray(Dl_spectra['auto']['545x545']['ell'])
+    # debug_545 = np.asarray(Dl_spectra['auto']['545x545']['1h']) + np.asarray(Dl_spectra['auto']['545x545']['2h'])
+    # debug_data = np.stack([debug_ell, debug_545], axis=1)
+    # print("Saving debugging data...")
+    # sys.stdout.flush()
+    # np.savetxt('/project/r/rbond/ymehta3/debug_545.txt', debug_data)
 
     ells = []
     Cls_dict = {}
