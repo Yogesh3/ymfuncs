@@ -169,9 +169,9 @@ def getBinning(binned_ells= None):
     
 
 
-def binTheory(spectra, wsp_name):
+def binTheory(spectra, wsp_path):
     wsp = nmt.NmtWorkspace()
-    wsp.read_from(wsp_name)
+    wsp.read_from(wsp_path)
 
     windows = np.squeeze( wsp.get_bandpower_windows() )     # assumes spin 0 fields in wsp spectrum
 

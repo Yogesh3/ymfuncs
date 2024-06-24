@@ -281,7 +281,7 @@ def ratioPlot(xs= None,
     fig, ax = plt.subplots(1,2, figsize=(15,5))
 
     #Plot Data
-    if xs:
+    if xs is not None:
         #Absolute Plot
         for ylabel, yline in ylines_dict.items():
             ax[0].plot(xs, yline, label= ylabel, **lines_kwargs)
@@ -296,10 +296,11 @@ def ratioPlot(xs= None,
                 ax[1].plot(xs,  yline / ref_line  * 100, label= ylabel, **lines_kwargs)
     
     #Plot Horizontal Line on Relative Plot
-    if ratio_type == 'percent discrepancy':
-        ax[1].axhline(y= 0, color='black')
-    elif ratio_type == 'ratio':
-        ax[1].axhline(y= 1, color='black')
+    if ylines_dict:
+        if ratio_type == 'percent discrepancy':
+            ax[1].axhline(y= 0, color='black', label= ref_label)
+        elif ratio_type == 'ratio':
+            ax[1].axhline(y= 1 * 100, color='black', label= ref_label)
 
     #Trimmings: Absolute Plot
     ax[0].set_ylabel(r'$C_{\ell}$')
@@ -311,12 +312,13 @@ def ratioPlot(xs= None,
     if ratio_type == 'percent discrepancy':
         ax[1].set_title('Percent Discrepancy')
         ax[1].set_ylabel('[%]')
-        if xs:
+        if xs is not None:
             ax[1].set_ylabel(rf'$(C_{{\ell}} - C_{{\ell}}^{{ {list(yref_dict)[0]} }} )/ C_{{\ell}}^{{ {list(yref_dict)[0]} }} \; [\%]$')
     elif ratio_type == 'ratio':
         ax[1].set_title('Ratios')
         ax[1].set_ylabel('[%]')
-        if xs:
+        if xs is not None:
+            # ax[1].set_ylabel(rf'$C_{{\ell}} / C_{{\ell}}^{{ \textrm{{ {list(yref_dict)[0]} }} }} \; [\%]$')
             ax[1].set_ylabel(rf'$C_{{\ell}} / C_{{\ell}}^{{ {list(yref_dict)[0]} }} \; [\%]$')
     ax[1].set_xlabel(r'$\ell$')
     ax[1].grid(which='both')
