@@ -700,14 +700,43 @@ def cl2dl(Cl, ells= None):
 
 
 
-def flux2Tcmb(flux_quantity, freq):
+def flux2Tcmb(flux_quantity, freq, type='map'):
     """
     Convert from Janskys/steradians to micro-Kelvins
-    """
+
+    Parameters
+    ----------
+    flux_quantity : array-like
+        Thing whose units you want to change from flux.
+    freq : float
+        Observing frequency
+    type : str, optional
+        {'map', 'cl'}. By default 'map'
+
+    Returns
+    -------
+    array-like
+        Output object in units of CMB temperature
+
+    Raises
+    ------
+    ValueError
+        Raised if the 'type' parameter wasn't recognized
+    """    
     freq = int(freq) * u.GHz
     equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
 
-    Tcmb_quantity = flux_quantity * (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv)
+    factor = (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv)
+
+    if type == 'map':
+        factor = factor
+    elif type == 'cl':
+        factor = factor**2
+    else:
+        raise ValueError('Invalid "type" argument')
+
+
+    Tcmb_quantity = flux_quantity * factor
 
     return Tcmb_quantity
 
@@ -715,10 +744,39 @@ def flux2Tcmb(flux_quantity, freq):
 def Tcmb2flux(Tcmb_quantity, freq):
     """
     Convert from micro-Kelvins to Janskys/steradians
-    """
+
+    Parameters
+    ----------
+    flux_quantity : array-like
+        Thing whose units you want to change from flux.
+    freq : float
+        Observing frequency
+    type : str, optional
+        {'map', 'cl'}. By default 'map'
+
+    Returns
+    -------
+    array-like
+        Output object in units of CMB temperature
+
+    Raises
+    ------
+    ValueError
+        Raised if the 'type' parameter wasn't recognized
+    """    
     freq = int(freq) * u.GHz
     equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
-    flux_quantity = Tcmb_quantity * (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv)
+
+    factor = (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv)
+
+    if type == 'map':
+        factor = factor
+    elif type == 'cl':
+        factor = factor**2
+    else:
+        raise ValueError('Invalid "type" argument')
+
+    flux_quantity = Tcmb_quantity * factor
 
     return flux_quantity
 
