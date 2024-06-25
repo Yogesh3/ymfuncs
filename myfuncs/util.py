@@ -741,7 +741,7 @@ def flux2Tcmb(flux_quantity, freq, type='map'):
     return Tcmb_quantity
 
 
-def Tcmb2flux(Tcmb_quantity, freq):
+def Tcmb2flux(Tcmb_quantity, freq, type='map'):
     """
     Convert from micro-Kelvins to Janskys/steradians
 
