@@ -248,3 +248,8 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
             print(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
         else:
             print(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
+
+
+def mpiprint(string):
+    print(string)
+    sys.stdout.flush()
