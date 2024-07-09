@@ -848,6 +848,27 @@ def getIndividualCovmat(Cl1, Cl2, big_covmat, probes_list):
 
 
 
+def getSubCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, probes_list, return_indices= False):    
+    #Get Conversion Between Probe Name and Covmat Index
+    probes2indices = Fields2Indices(probes_list)
+    
+    #Calculate Length of Individual Covmat
+    N_probes = len(probes_list)
+    N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
+    indiv_covmat_len = int( len(big_covmat) / N_Cls )
+    
+    #Get Individual Covmat
+    istart, jstart = probes2indices[f'{start_Cl1},{start_Cl2}']
+    iend, jend = probes2indices[f'{end_Cl1},{end_Cl2}']
+    sub_covmat = big_covmat[istart*indiv_covmat_len : (iend+1)*indiv_covmat_len  ,  jstart*indiv_covmat_len : (jend+1)*indiv_covmat_len]
+
+    if return_indices:
+        return sub_covmat, [istart,jstart,iend,jend]
+    else:
+        return sub_covmat
+
+
+
 def cov2corr(covmat):
     """
     Converts individual covariance matrix to a correlation matrix. Does not work for a super matrix of covariance matrices.

@@ -204,12 +204,19 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 
 
 def plotCovmat(Covmat, fields_names_list,
-               clim= None):
+               clim= None,
+               subcovmat_Cls= []
+               ):
     
     #Get Covmat Info
     Cls_names = yutil.Fields2Cls(fields_names_list)
     N_Cls = len(Cls_names)
     cov_cls2indices_dict = yutil.Fields2Indices(fields_names_list)
+
+    #Get Subcovmat
+    if subcovmat_Cls is None:
+        subcovmat_Cls = [ Cls_names[0], Cls_names[0], Cls_names[-1], Cls_names[-1] ]
+    subCovmat, subCovmat_indices = yutil.getSubCovmat(*subcovmat_Cls, Covmat, fields_names_list, return_indices= True)
 
     #Colors
     if clim is None:
@@ -219,7 +226,10 @@ def plotCovmat(Covmat, fields_names_list,
         cmin = clim[0]
         cmax = clim[1]
 
-    fig, ax = plt.subplots( N_Cls, N_Cls, 
+    #Set up Figure
+    N_iax = len( np.arange(subCovmat_indices[0], subCovmat_indices[2]+1) )
+    N_jax = len( np.arange(subCovmat_indices[1], subCovmat_indices[3]+1) )
+    fig, ax = plt.subplots( N_iax, N_jax, 
                             figsize = (10, 10),
                             sharex = True,
                             sharey = True)
@@ -231,6 +241,10 @@ def plotCovmat(Covmat, fields_names_list,
             #Get Individual Covmat
             indiv_covmat = yutil.getIndividualCovmat(iCl, jCl, Covmat, fields_names_list)
             i, j = cov_cls2indices_dict[f'{iCl},{jCl}']
+
+            if ( i not in range(subCovmat_indices[0], subCovmat_indices[2]+1) ) and \
+               ( j not in range(subCovmat_indices[1], subCovmat_indices[3]+1) ):
+               continue
 
             #Plot Individual Covmat
             ax[i,j].imshow(indiv_covmat, cmap='RdBu', vmin= cmin, vmax= cmax)
