@@ -203,12 +203,21 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 
 
 
-def plotCovmat(Covmat, fields_names_list):
+def plotCovmat(Covmat, fields_names_list,
+               clim= None):
     
     #Get Covmat Info
     Cls_names = yutil.Fields2Cls(fields_names_list)
     N_Cls = len(Cls_names)
     cov_cls2indices_dict = yutil.Fields2Indices(fields_names_list)
+
+    #Colors
+    if clim is None:
+        cmin = Covmat.min()
+        cmax = Covmat.max()
+    else:
+        cmin = clim[0]
+        cmax = clim[1]
 
     fig, ax = plt.subplots( N_Cls, N_Cls, 
                             figsize = (10, 10),
@@ -224,19 +233,44 @@ def plotCovmat(Covmat, fields_names_list):
             i, j = cov_cls2indices_dict[f'{iCl},{jCl}']
 
             #Plot Individual Covmat
-            ax[i,j].imshow(indiv_covmat, cmap='RdBu', vmin= Covmat.min, vmax= Covmat.max)
+            ax[i,j].imshow(indiv_covmat, cmap='RdBu', vmin= cmin, vmax= cmax)
 
             #Adjust Individual Covmat's Axis
             ax[i,j].set_aspect('equal')
-            ax.xaxis.set_label_position('top')
             ax[i,j].tick_params(axis='both', 
                                 direction='in',
                                 top= True, right= True,
                                 labelbottom= False, labelleft= False)
 
-    ax[0,0].set_ylabel(rf'{iCl},{jCl}')
-    plt.subplots_adjust(wspace=0, hspace=0)
-    plt.colorbar()
+            #Create Latex Label
+            ifields = iCl.split('x')
+            for idx, field in enumerate(ifields):
+                if field == 'kappa':
+                    ifields[idx] = '\kappa'
+            iCl_latex = '\;\mathrm{x}\;'.join( ifields ) 
+            jfields = jCl.split('x')
+            for idx, field in enumerate(jfields):
+                if field == 'kappa':
+                    jfields[idx] = '\kappa'
+            jCl_latex = '\;\mathrm{x}\;'.join( jfields ) 
+
+            #Add Probe Labels
+            ax[i,j].xaxis.set_label_position('top')
+            if j == 0:
+                ax[i,j].set_ylabel(fr'${iCl_latex}$')
+            if i == 0:
+                ax[i,j].set_xlabel(fr'${jCl_latex}$')
+
+    plt.subplots_adjust(wspace=0, hspace=0, 
+                        right=0.9,
+                        bottom=0.1)
+
+    #Colorbar
+    cbar_ax = fig.add_axes([0.95, 0.10, 0.03, 0.8])
+    norm = mpl.colors.Normalize(vmin= cmin, vmax= cmax)
+    plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap='RdBu'),
+                #  ax = ax.ravel().tolist() 
+                 cax = cbar_ax)
 
     return fig, ax
 
