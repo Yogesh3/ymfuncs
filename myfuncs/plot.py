@@ -206,7 +206,7 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 def plotCovmat(Covmat, fields_names_list,
                Cls_names_list= None,
                clim= None,
-               subcovmat_Cls= []
+               subcovmat_Cls= None
                ):
     
     #Get Covmat Info
@@ -237,12 +237,12 @@ def plotCovmat(Covmat, fields_names_list,
     
     #Plot Individual Covmats on the Large Covmat Canvas
     iax = 0
-    jax = 0
     for iCov, Cl_name_row in enumerate(Cls_names):
 
         if iCov not in range(subCovmat_indices[0], subCovmat_indices[2]+1):
             continue
 
+        jax = 0
         for jCov, Cl_name_col in enumerate(Cls_names):
 
             if jCov not in range(subCovmat_indices[1], subCovmat_indices[3]+1):
