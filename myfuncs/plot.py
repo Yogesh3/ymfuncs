@@ -206,7 +206,8 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 def plotCovmat(Covmat, fields_names_list,
                Cls_names_list= None,
                clim= None,
-               subcovmat_Cls= None
+               subcovmat_Cls= None,
+               figure_size = (10,10)
                ):
     
     #Get Covmat Info
@@ -231,9 +232,10 @@ def plotCovmat(Covmat, fields_names_list,
     N_iax = len( np.arange(subCovmat_indices[0], subCovmat_indices[2]+1) )
     N_jax = len( np.arange(subCovmat_indices[1], subCovmat_indices[3]+1) )
     fig, ax = plt.subplots( N_iax, N_jax, 
-                            figsize = (10, 10),
+                            figsize = figure_size,
                             sharex = True,
-                            sharey = True)
+                            sharey = True,
+                            squeeze= False)
     
     #Plot Individual Covmats on the Large Covmat Canvas
     iax = 0
