@@ -204,6 +204,7 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 
 
 def plotCovmat(Covmat, fields_names_list,
+               Cls_names_list= None,
                clim= None,
                subcovmat_Cls= []
                ):
@@ -235,45 +236,53 @@ def plotCovmat(Covmat, fields_names_list,
                             sharey = True)
     
     #Plot Individual Covmats on the Large Covmat Canvas
-    for iCl in Cls_names:
-        for jCl in Cls_names:
+    iax = 0
+    jax = 0
+    for iCov, Cl_name_row in enumerate(Cls_names):
 
-            #Get Individual Covmat
-            indiv_covmat = yutil.getIndividualCovmat(iCl, jCl, Covmat, fields_names_list)
-            i, j = cov_cls2indices_dict[f'{iCl},{jCl}']
+        if iCov not in range(subCovmat_indices[0], subCovmat_indices[2]+1):
+            continue
 
-            if ( i not in range(subCovmat_indices[0], subCovmat_indices[2]+1) ) and \
-               ( j not in range(subCovmat_indices[1], subCovmat_indices[3]+1) ):
+        for jCov, Cl_name_col in enumerate(Cls_names):
+
+            if jCov not in range(subCovmat_indices[1], subCovmat_indices[3]+1):
                continue
 
+            #Get Individual Covmat
+            indiv_covmat = yutil.getIndividualCovmat(Cl_name_row, Cl_name_col, Covmat, fields_names_list)
+
             #Plot Individual Covmat
-            ax[i,j].imshow(indiv_covmat, cmap='RdBu', vmin= cmin, vmax= cmax)
+            ax[iax,jax].imshow(indiv_covmat, cmap='RdBu', vmin= cmin, vmax= cmax)
 
             #Adjust Individual Covmat's Axis
-            ax[i,j].set_aspect('equal')
-            ax[i,j].tick_params(axis='both', 
+            ax[iax,jax].set_aspect('equal')
+            ax[iax,jax].tick_params(axis='both', 
                                 direction='in',
                                 top= True, right= True,
                                 labelbottom= False, labelleft= False)
 
             #Create Latex Label
-            ifields = iCl.split('x')
+            ifields = Cl_name_row.split('x')
             for idx, field in enumerate(ifields):
                 if field == 'kappa':
                     ifields[idx] = '\kappa'
-            iCl_latex = '\;\mathrm{x}\;'.join( ifields ) 
-            jfields = jCl.split('x')
+            Cl_name_row_latex = '\;\mathrm{x}\;'.join( ifields ) 
+            jfields = Cl_name_col.split('x')
             for idx, field in enumerate(jfields):
                 if field == 'kappa':
                     jfields[idx] = '\kappa'
-            jCl_latex = '\;\mathrm{x}\;'.join( jfields ) 
+            Cl_name_col_latex = '\;\mathrm{x}\;'.join( jfields ) 
 
-            #Add Probe Labels
-            ax[i,j].xaxis.set_label_position('top')
-            if j == 0:
-                ax[i,j].set_ylabel(fr'${iCl_latex}$')
-            if i == 0:
-                ax[i,j].set_xlabel(fr'${jCl_latex}$')
+            #Add Cl Labels
+            ax[iax,jax].xaxis.set_label_position('top')
+            if jax == 0:
+                ax[iax,jax].set_ylabel(fr'${Cl_name_row_latex}$')
+            if iax == 0:
+                ax[iax,jax].set_xlabel(fr'${Cl_name_col_latex}$')
+
+            jax += 1
+
+        iax += 1
 
     plt.subplots_adjust(wspace=0, hspace=0, 
                         right=0.9,
