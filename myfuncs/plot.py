@@ -203,22 +203,30 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 
 
 
-def plotCovmat(Covmat, fields_names_list,
-               Cls_names_list= None,
-               clim= None,
-               subcovmat_Cls= None,
+def plotCovmat(Covmat, covmat_labels,
+               Cls_names_to_plot = None,
+               slice_Cls = None,
+               clim = None,
                figure_size = (10,10)
-               ):
+              ):
+    
+    if Cls_names_to_plot is not None and slice_Cls is not None: 
+        raise ValueError("Specifying both 'Cls_names_to_plot' and 'slice_Cls' is ambiguous. Please provide only one.")
     
     #Get Covmat Info
-    Cls_names = yutil.Fields2Cls(fields_names_list)
-    N_Cls = len(Cls_names)
-    cov_cls2indices_dict = yutil.Fields2Indices(fields_names_list)
+    Cls_names = yutil.getCovmatInfo(covmat_labels, 'cls')
 
-    #Get Subcovmat
-    if subcovmat_Cls is None:
-        subcovmat_Cls = [ Cls_names[0], Cls_names[0], Cls_names[-1], Cls_names[-1] ]
-    subCovmat, subCovmat_indices = yutil.getSubCovmat(*subcovmat_Cls, Covmat, fields_names_list, return_indices= True)
+    #Use Custom Spectra
+    if Cls_names_to_plot is not None:
+        Cls_names = Cls_names_to_plot
+
+    #Set Slice Covmat Defaults
+    if slice_Cls is None:
+        subCovmat_indices = [ 0, 0, len(Cls_names)-1, len(Cls_names)-1 ]
+
+    #Slice Covmat
+    else:
+        _, subCovmat_indices = yutil.sliceCovmat(*slice_Cls, Covmat, covmat_labels, return_indices= True)
 
     #Colors
     if clim is None:
@@ -231,6 +239,7 @@ def plotCovmat(Covmat, fields_names_list,
     #Set up Figure
     N_iax = len( np.arange(subCovmat_indices[0], subCovmat_indices[2]+1) )
     N_jax = len( np.arange(subCovmat_indices[1], subCovmat_indices[3]+1) )
+
     fig, ax = plt.subplots( N_iax, N_jax, 
                             figsize = figure_size,
                             sharex = True,
@@ -251,7 +260,7 @@ def plotCovmat(Covmat, fields_names_list,
                continue
 
             #Get Individual Covmat
-            indiv_covmat = yutil.getIndividualCovmat(Cl_name_row, Cl_name_col, Covmat, fields_names_list)
+            indiv_covmat = yutil.getIndividualCovmat(Cl_name_row, Cl_name_col, Covmat, covmat_labels)
 
             #Plot Individual Covmat
             ax[iax,jax].imshow(indiv_covmat, cmap='RdBu', vmin= cmin, vmax= cmax)
@@ -278,9 +287,9 @@ def plotCovmat(Covmat, fields_names_list,
             #Add Cl Labels
             ax[iax,jax].xaxis.set_label_position('top')
             if jax == 0:
-                ax[iax,jax].set_ylabel(fr'${Cl_name_row_latex}$')
+                ax[iax,jax].set_ylabel(fr'${Cl_name_row_latex}$', size='x-large')
             if iax == 0:
-                ax[iax,jax].set_xlabel(fr'${Cl_name_col_latex}$')
+                ax[iax,jax].set_xlabel(fr'${Cl_name_col_latex}$', size='x-large')
 
             jax += 1
 

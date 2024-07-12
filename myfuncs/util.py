@@ -830,32 +830,58 @@ def Fields2Indices(probes_list):
 
     return cov_name_to_indices
 
+
+def getCovmatInfo(labels, info):
+
+    if 'x' in labels[0]:
+        labels_type = 'Cls'
+    else:
+        labels_type = 'fields'
+
+    #Return Cl's
+    if info.lower() == 'cls':
+        if labels_type == 'Cls':
+            return labels
+        elif labels_type.lower() == 'fields':
+            return Fields2Cls(labels)
+
+    #Return Indices
+    if info.lower() == 'indices':
+        if labels_type == 'Cls':
+            return Cls2Indices(labels)
+        elif labels_type == 'fields':
+            return Fields2Indices(labels)
+
+
     
-def getIndividualCovmat(Cl1, Cl2, big_covmat, probes_list):    
-    #Get Conversion Between Probe Name and Covmat Index
-    probes2indices = Fields2Indices(probes_list)
+def getIndividualCovmat(Cl1, Cl2, big_covmat, covmat_labels):    
+
+    #Get Indices of Individual Covmat
+    index_dict = getCovmatInfo(covmat_labels, 'indices')
+    i, j = index_dict[f'{Cl1},{Cl2}']
     
     #Calculate Length of Individual Covmat
-    N_probes = len(probes_list)
-    N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
+    Cls = getCovmatInfo(covmat_labels, 'cls')
+    N_Cls = len(Cls)
     indiv_covmat_len = int( len(big_covmat) / N_Cls )
     
     #Get Individual Covmat
-    i, j = probes2indices[f'{Cl1},{Cl2}']
     indiv_covmat = big_covmat[i*indiv_covmat_len : (i+1)*indiv_covmat_len  ,  j*indiv_covmat_len : (j+1)*indiv_covmat_len]
 
     return indiv_covmat
 
 
 
-def getSubCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, probes_list, return_indices= False):    
+def sliceCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, covmat_labels, return_indices= False):    
+
     #Get Conversion Between Probe Name and Covmat Index
-    probes2indices = Fields2Indices(probes_list)
+    probes2indices = getCovmatInfo(covmat_labels, 'indices')
     
     #Calculate Length of Individual Covmat
-    N_probes = len(probes_list)
-    N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
+    Cls = getCovmatInfo(covmat_labels, 'cls')
+    N_Cls = len(Cls)
     indiv_covmat_len = int( len(big_covmat) / N_Cls )
+    # N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
     
     #Get Individual Covmat
     istart, jstart = probes2indices[f'{start_Cl1},{start_Cl2}']
@@ -869,9 +895,37 @@ def getSubCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, probes_list
 
 
 
+def selectIndivCovmats(big_covmat, covmat_labels, select_Cls_list):
+# Make note that this can be used for reordering your covmat as well
+
+    sub_covmat = None
+    for select_Cl_row in select_Cls_list:
+        
+        sub_covmat_row = None
+        for select_Cl_col in select_Cls_list:
+
+            #Get Individual Covmat
+            indiv_covmat = getIndividualCovmat(select_Cl_row, select_Cl_col, big_covmat, covmat_labels)
+
+            #Add Individual Covmat to the Sub Covmat Row
+            if sub_covmat_row is None:
+                sub_covmat_row = indiv_covmat
+            else:
+                sub_covmat_row = np.concatenate([sub_covmat_row, indiv_covmat], axis=-1)
+
+        #Add Individual Covmat to the Sub Covmat 
+        if sub_covmat is None:
+            sub_covmat = sub_covmat_row
+        else:
+            sub_covmat = np.concatenate([sub_covmat, sub_covmat_row], axis=0)
+
+    return sub_covmat
+
+
+
 def cov2corr(covmat):
     """
-    Converts individual covariance matrix to a correlation matrix. Does not work for a super matrix of covariance matrices.
+    Converts individual covariance matrix to a correlation matrix. 
 
     Parameters
     ----------
