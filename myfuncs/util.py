@@ -49,6 +49,34 @@ def closest_match(array, reference, return_indices= False):
 
 
 
+def find_duplicates_mask(input_array):
+    """
+    Find all locations where entries in an array are repeated. 
+    
+    Using Numpy's "unique" function alone doesn't work because it lumps together non-repeated values with the first instance of a repeated value. Using it to obtain the locations of duplications will therefore exclude the first instance of a repeated value.
+
+    Parameters
+    ----------
+    input_array : array
+        The array. Note that this must be an array b/c this function uses numpy's "shape" attribute.
+
+    Returns
+    -------
+    array
+        Mask that selects every instance of a repeated value in the input array
+    """
+    duplications_mask_first_instance = np.ones(input_array.shape, dtype=bool)
+    duplications_mask_first_instance[ np.unique(input_array.shape, return_index=True)[1] ] = False   # selects unique values and FIRST instance of repeated values
+
+    duplications_mask_all = np.zeros(input_array.shape, dtype=bool)
+    for duplication in input_array[duplications_mask_first_instance]:
+        duplicates_idxs = np.argwhere(input_array == duplication)
+        duplications_mask_all[duplicates_idxs] = True
+
+    return duplications_mask_all
+
+
+
 def bin_cen2edg(centers, delta= None):
     """
     Shifts from midpoints of bins to the edges of the bins (inclusive of the lower and upper endpoints).
