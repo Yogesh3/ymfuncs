@@ -1,3 +1,4 @@
+import pdb
 import numpy as np
 import sys
 from astropy import units as u
@@ -65,11 +66,16 @@ def find_duplicates_mask(input_array):
     array
         Mask that selects every instance of a repeated value in the input array
     """
-    duplications_mask_first_instance = np.ones(input_array.shape, dtype=bool)
-    duplications_mask_first_instance[ np.unique(input_array.shape, return_index=True)[1] ] = False   # selects unique values and FIRST instance of repeated values
+    #Get All But the First Duplications' Locations
+    duplications_mask_no_first = np.ones(input_array.shape, dtype=bool)
+    duplications_mask_no_first[ np.unique(input_array, return_index=True)[1] ] = False   # selects unique values and FIRST instance of repeated values
 
+    #Get Values That Repeat
+    duplicated_values = np.unique(input_array[duplications_mask_no_first])
+
+    #Get All Instances of Repeated Values
     duplications_mask_all = np.zeros(input_array.shape, dtype=bool)
-    for duplication in input_array[duplications_mask_first_instance]:
+    for duplication in duplicated_values:
         duplicates_idxs = np.argwhere(input_array == duplication)
         duplications_mask_all[duplicates_idxs] = True
 
