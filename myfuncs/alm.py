@@ -56,14 +56,6 @@ def lm2cl(alm, weights=None, normalize=True):
 
 
 
-def knox_formula_errors(power1, power2, fsky, ells, delta_ell, cross_power = None):
-    """Probably in orphics"""
-
-    #Note that the power1 and power2 should include noise, but the cross should not.
-    return np.sqrt(1. / ((2. * ells + 1) * fsky * delta_ell ) * ((cross_power**2 if cross_power is not None else 0.) + power1 * power2) )
-
-
-
 def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= False):
     """
     Copied from orphics, but generalized to take 2 masks instead of only one. Both
@@ -104,7 +96,7 @@ def wfactor(mask1, n1, mask2=None, n2=None, pmap= None, sht= True, equal_area= F
 
 
 
-def getField(signal_map, mask, lmax=4000, **user_kwargs):
+def getField(signal_map, mask, lmax=4000, lensingFlag=False, **user_kwargs):
     """Calculates the pymaster field for a given map and its mask. Has several keyword arguments.
 
     Parameters
@@ -115,6 +107,8 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
         Mask
     lmax : int, optional
         Ell max for power spectrum, by default 4000
+    lensingflag : bool, optional
+        Should I square the CMB mask to create the effective kappa mask? By default False
 
     Returns
     -------
@@ -131,12 +125,63 @@ def getField(signal_map, mask, lmax=4000, **user_kwargs):
     #Merge keyword arguments
     kwargs = {**standard_kwargs, **user_kwargs}
 
-    field = nmt.NmtField(mask, [signal_map], wcs= mask.wcs, **kwargs)
+    if lensingFlag:
+        field = nmt.NmtField(mask**2, [signal_map], wcs= mask.wcs, **kwargs)
+    else:
+        field = nmt.NmtField(mask, [signal_map], wcs= mask.wcs, **kwargs)
 
     return field
 
 
-def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
+
+def Field2Spectrum(field1, field2, wsp_name = None):
+
+    #Load MCM
+    wsp = nmt.NmtWorkspace()
+    if wsp_name is not None:
+        wsp.read_from(wsp_name)
+
+    #Coupled Spectrum
+    Cl_coup = nmt.compute_coupled_cell(field1, field2)
+
+    #Decoupled Spectrum
+    if wsp_name:
+        Cl_decoup = wsp.decouple_cell(Cl_coup)
+        spectrum = Cl_decoup
+    else:
+        spectrum = Cl_coup
+
+    spectrum = np.squeeze(spectrum)
+
+    return spectrum
+
+
+
+def getBinning(binned_ells= None):
+    default_ellmax = 4000
+
+    if binned_ells is not None:
+        bin_obj = nmt.NmtBin(ells= binned_ells)
+    else:
+        bin_obj = nmt.NmtBin(lmax= default_ellmax, nlb= 1)
+
+    return bin_obj.get_effective_ells()
+    
+
+
+def binTheory(spectra, wsp_path):
+    wsp = nmt.NmtWorkspace()
+    wsp.read_from(wsp_path)
+
+    windows = np.squeeze( wsp.get_bandpower_windows() )     # assumes spin 0 fields in wsp spectrum
+
+    bandpowers = np.einsum('kj,...j', windows, spectra)
+
+    return bandpowers
+
+
+
+def Map2Spectrum(map_set1, map_set2= None, wsp_name= None, binned_ells= None):
     """
     Calculates auto/cross spectrum from CAR maps/masks using pymaster.
 
@@ -150,11 +195,13 @@ def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
         [map2, mask2] (only applicable for cross spectrum), by default None
     wsp_name : str, optional
         Full path of the pymaster workspace object with the mode-coupling matrix, by default None
+    binned_ells : 1d array, optional
+        Left edges of ell bins, by default None
 
     Returns
     -------
-    1D array
-        auto/cross spectrum
+    1D array, 1D array
+        ell bandpowers and auto/cross spectrum
     """
     #Get Fields
     f1 = getField(map_set1[0], map_set1[1])
@@ -163,20 +210,83 @@ def calcSpectrum(map_set1, map_set2= None, wsp_name= None):
     else:
         f2 = getField(map_set1[0], map_set1[1])
 
-    #Load MCM
-    wsp = nmt.NmtWorkspace()
-    if wsp_name:
-        wsp.read_from(wsp_name)
+    # #Create Binning if No Pre-existing Workspace
+    # else:
+    #     try:
+    #         ells = getBinning(binned_ells)
+    #     except:
+    #         raise ValueError("")
 
-    #Coupled Spectrum
-    Cl_coup = nmt.compute_coupled_cell(f1, f2)
+    Cl = Field2Spectrum(f1, f2, wsp_name)
 
-    #Decoupled Spectrum
-    if wsp_name:
-        Cl_decoup = wsp.decouple_cell(Cl_coup)
-        Cl_decoup = Cl_decoup[0,:]
+    # if wsp_name:
+    #     return Cl
+    # else:
+    #     return ells, Cl
+    return Cl
 
-        return Cl_decoup
 
+
+def Map2Covmat(theory_list,
+               map_set_list,
+               spin_list = [0,0,0,0],
+            #    field_order= '1234',
+               mcm1_wsp_path= None,
+               mcm2_wsp_path= None,
+               coeff_wsp_path= None,
+               coeff_wsp_savepath= None,
+               lmax= None ):
+    
+    # TODO: Make fields required only if recalculating the coupling coefficients
+    # TODO: Pack up the map_sets into a list
+    # TODO: Make mcm's mandatory
+
+    #Get Fields
+    fields_list = []
+    for map_set in map_set_list:
+        fields_list.append( getField(map_set[0], map_set[1]) )
+
+    #Load MCM Workspaces
+    mcm1_wsp = nmt.NmtWorkspace()
+    if mcm1_wsp_path:
+        mcm1_wsp.read_from(mcm1_wsp_path)
+    mcm2_wsp = nmt.NmtWorkspace()
+    if mcm2_wsp_path:
+        mcm2_wsp.read_from(mcm2_wsp_path)
+    # TODO: Add option to calculate the mcms if one is not provided
+
+    #Extract Nells
+    if mcm1_wsp_path:
+        Nbins = mcm1_wsp.get_bandpower_windows().shape[1]      # Only works for spin-0 fields!
     else:
-        return Cl_coup
+        if not lmax:
+            raise ValueError("Need 'lmax' if you aren't going to give a workspace")
+
+    #Load Coupling Coefficient Workspace
+    coeff_wsp = nmt.NmtCovarianceWorkspace()
+    if coeff_wsp_path:
+        coeff_wsp.read_from(coeff_wsp_path)
+
+    #Calculate Coupling Coefficients
+    else:
+        if not lmax:
+            lmax = 4000
+        print("Calculating coupling coefficients")
+        coeff_wsp.compute_coupling_coefficients(*fields_list, lmax= lmax)
+        # coeff_wsp.compute_coupling_coefficients(*fields_list)
+
+        if coeff_wsp_savepath:
+            coeff_wsp.write_to(coeff_wsp_savepath)
+        else:
+            print("Not saving the coupling coefficients that I just worked so hard to calculate...")
+
+    #Extract Covariance Matrix
+    general_covmat = nmt.gaussian_covariance(coeff_wsp,
+                                             *spin_list,
+                                             *theory_list,
+                                             mcm1_wsp,
+                                             wb= mcm2_wsp).reshape([Nbins, 1,
+                                                                    Nbins, 1])
+    covmat = general_covmat[:, 0, :, 0]
+
+    return covmat

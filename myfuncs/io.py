@@ -1,6 +1,8 @@
 import healpy as hp
 from pixell import enmap
 import numpy as np
+import os
+
 
 def readTxt(fname):
     """
@@ -8,14 +10,15 @@ def readTxt(fname):
 
     Returns: list
     """    
-    list = []
+    names_list = []
     
     with open(fname) as fobj:
         for row in fobj:
-            list.append(row.rstrip('\n'))
+            names_list.append(row.rstrip('\n'))
     
-    return list
+    return names_list
     
+
 
 def readMapFromFile(mapfile_name):
     """
@@ -26,10 +29,15 @@ def readMapFromFile(mapfile_name):
     """
     
     with open(mapfile_name) as name_fobj:
-        mapname = name_fobj.readlines()[-1]
-        themap = readMapPrecisely(mapname)
+        for line in name_fobj:
+            if line[0] == '#':
+                continue
+            map_name = line.rstrip('\n')
+
+        themap = readMapPrecisely(map_name)
 
     return themap
+
 
 
 def readAlmFromFile(almfile_name):
@@ -41,10 +49,15 @@ def readAlmFromFile(almfile_name):
     """
 
     with open(almfile_name) as name_fobj:
-        alm_name = name_fobj.readlines()[0]
+        for line in name_fobj:
+            if line[0] == '#':
+                continue
+            alm_name = line.rstrip('\n')
+
         alm = readAlmPrecisely(alm_name)
 
     return alm
+
 
 
 def readMapPrecisely(mapfile_name):
@@ -68,6 +81,7 @@ def readMapPrecisely(mapfile_name):
     return themap
 
 
+
 def readAlmPrecisely(almfile_name):
     """
     Reads in single alm with calculation precision.
@@ -87,6 +101,7 @@ def readAlmPrecisely(almfile_name):
     alm = np.cdouble(alm)
 
     return alm
+
 
 
 def getProjectDir(machinename):
@@ -109,3 +124,21 @@ def getProjectDir(machinename):
         path = '/pscratch/sd/y/yogesh3/'
 
     return path
+
+
+
+def getBasename(pathname_with_extension):
+    """
+    Gets the name of a file without the extension. This is equivalent to pathlib.Path.stem, but that only works for Python 3.4+.
+
+    Parameters
+    ----------
+    pathname_with_extension : str
+        Path to the file. Can be a full path or just the file name with the extension.
+
+    Returns
+    -------
+    str
+        Name of the file without the extension.
+    """
+    return os.path.splitext(os.path.basename(pathname_with_extension))[0]

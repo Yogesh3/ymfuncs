@@ -1,5 +1,5 @@
 import numpy as np
-from orphics import stats as ostats
+from orphics import stats as ostats, maps as orphmaps
 from pixell import enmap
 from myfuncs import alm as yalm
 
@@ -34,7 +34,7 @@ def fft2cl(fft, bin_edges, modlmap):
     Parameters
     ----------
     bin_edges : 1d array
-        Array of the edges of the ell bins
+        Array of the left edges of the ell bins
     fft : 2d array
         2D power spectra
     modlmap : 2d array
@@ -43,27 +43,47 @@ def fft2cl(fft, bin_edges, modlmap):
     Returns
     -------
     1d array, 1d array
-        ells_binned (which have length = len(bin_edges) - 1), Cl
+        Binned ells and Cls (which have length = len(bin_edges) - 1)
     """
+    #Bin
     binner = ostats.bin2D(modlmap, bin_edges)
     cents, Cl = binner.bin(fft)
+
+    #Pad The Cls to Match the Ells
+    pad_length = len(cents) - len(Cl) 
+    Cl = np.concatenate( [Cl, np.zeros(pad_length)] )
 
     return cents, Cl
 
 
-def maps2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, return_wfac= False):
+def map2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, apodizeFlag= True, return_wfac= False):
+
     if pixmap2 is None:
         pixmap2 = pixmap1
 
     #Create Composite Mask
     if mask2 is None:
-        mask = mask1
+        mask = mask1**2
+        pixmap2 = pixmap1
     else:
         mask = mask1 * mask2
 
     #Initializations
     maps = [pixmap1, pixmap2]
     ffts = [] 
+    
+    #Apodize
+    if apodizeFlag:
+        for current_map in maps:
+            #Get Apodized Mask
+            taper_percent = 4 # %
+            apod_window, _ = orphmaps.get_taper(current_map.shape, current_map.wcs, taper_percent= taper_percent)
+
+            #Apply Apodization
+            current_map *= apod_window
+
+            #Adjust Composite Mask
+            mask *= apod_window
     
     #Fourier Transform
     for pixmap in maps:
@@ -72,7 +92,12 @@ def maps2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, return_wfac= F
     #Power Spectrum Calculation
     ells_binned, Cls = fft2cl( xcorr(*ffts), ell_edges, pixmap1.modlmap())
 
+    #Wfactor
+    mask = enmap.enmap(mask, wcs= pixmap1.wcs)
+    wfac = yalm.wfactor(mask, 1, sht= False)
+    Cls /= wfac
+
     if not return_wfac:
         return ells_binned, Cls
     else:
-        return ells_binned, Cls, w2
+        return ells_binned, Cls, wfac
