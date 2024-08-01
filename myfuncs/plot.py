@@ -7,23 +7,26 @@ import numpy as np
 from myfuncs import util as yutil
 
 
-def eshow(*plotslist, **user_kwargs): 
-    ''' 
-    Wrapper to plot enmaps. Sets defaults for the map images and allows to combine maps.
+def eshow(the_map, show_img= True, return_img= False, **user_kwargs): 
+    """
+    Wrapper to plot enmaps. Includes defaults for the image.
+
+    Parameters
+    ----------
+    the_map : enmap
+        Enmap object to plot
+    show_img : bool, optional
+        Whether or not to show the image. By default True
+    return_img : bool, optional
+        Whether or not to return the enplot object. By default False
+
+    Returns
+    -------
+    enplot object, optional
+        Plot object. Will show the image no matter what.
+    """    ''' 
     '''
         
-    #Combine Multiple Maps into a Single Image?
-    if 'combine' in user_kwargs.keys():
-        combineFlag = user_kwargs.pop('combine')
-    else:
-        combineFlag = False
-
-    #Return Image?
-    if 'return_img' in user_kwargs.keys():
-        return_img = True
-    else:
-        return_img = False
-
     #Default Settings
     default_kwargs = {}
     default_kwargs['ticks'] = 10
@@ -32,36 +35,48 @@ def eshow(*plotslist, **user_kwargs):
     default_kwargs['mask'] = 0
     total_kwargs = {**default_kwargs, **user_kwargs}
 
-    #Create Plot(s)
-    if combineFlag:
-        #Later Maps Kwargs
-        laterplots_kwargs = {}
-        laterplots_kwargs['colorbar'] = False
-        laterplots_kwargs['no_image'] = True
-        laterplots_kwargs['contours'] = 0.1
-        laterplots_kwargs = {**total_kwargs, **laterplots_kwargs}
+    #Create Plot
+    out_plot = enplot.get_plots(the_map, **total_kwargs)
 
-        # for plot, colorscheme in zip(plotslist, colorize.schemes.keys()):
-        #     total_kwargs = defau
+    #Show Plot
+    if show_img:
+        enplot.show(out_plot, method = "ipython")
 
-        #Get Plots
-        first_plot = enplot.get_plots(plotslist[0], **total_kwargs)
-        later_plots = enplot.get_plots(*plotslist[1:], **laterplots_kwargs)
-
-        #Merge Plots
-        # all_plots = []
-        # all_plots.append(first_plot)
-        # all_plots.extend(later_plots)
-        # import pdb; pdb.set_trace()
-        out_plots = enplot.merge_plots(first_plot + later_plots)
-
-    else:
-        out_plots = enplot.get_plots(*plotslist, **total_kwargs)
-
-    enplot.show(out_plots, method = "ipython")
-
+    #Return Image
     if return_img:
-        return out_plots
+        return out_plot
+
+
+
+def emerge_plots(mapslist, kwargs_list, show_img= True, return_img= False):
+
+    #Later Maps Kwargs
+    laterplots_kwargs = {}
+    laterplots_kwargs['colorbar'] = False
+    laterplots_kwargs['no_image'] = True
+    laterplots_kwargs['contours'] = 0.1
+
+    for imap, current_map in enumerate(mapslist):
+
+        #Get First Plot
+        if iplot == 0:
+            all_plots = enplot.get_plots(current_map, show_img= False, return_img= True)
+        
+        #Add Later Plots
+        else:
+            current_plot = enplot.get_plots(current_map, show_img= False, return_img= True, **laterplots_kwargs)
+            all_plots += current_plot
+
+    #Merge Plots
+    out_plots = enplot.merge_plots(first_plot + later_plots)
+
+    #Show Plot
+    if show_img:
+        enplot.show(out_plot, method = "ipython")
+
+    #Return Image
+    if return_img:
+        return out_plot
 
 
 
