@@ -23,9 +23,8 @@ def eshow(the_map, show_img= True, return_img= False, **user_kwargs):
     Returns
     -------
     enplot object, optional
-        Plot object. Will show the image no matter what.
-    """    ''' 
-    '''
+        Plot object.
+    """     
         
     #Default Settings
     default_kwargs = {}
@@ -48,8 +47,26 @@ def eshow(the_map, show_img= True, return_img= False, **user_kwargs):
 
 
 
-def emerge_plots(mapslist, kwargs_list, show_img= True, return_img= False):
+def emerge_plots(mapslist, kwargs_list= [], show_img= True, return_img= False):
+    """
+    Wrapper to merge enmaps into a single overlay plot. While defaults for each map are provided, they don't really make sense for more than 2 maps (all maps >=2 are indentical contours), so make sure to specify how you want each plot to look.
 
+    Parameters
+    ----------
+    mapslist : list
+        List of enmaps.
+    kwargs_list : list, optional
+        List of dicts with enplot kwargs that specify how each map looks. By default []
+    show_img : bool, optional
+        Whether or not to show the image. By default True
+    return_img : bool, optional
+        Whether or not to return the enplot object. By default False
+
+    Returns
+    -------
+    enplot object, optional
+        Plot object of all maps overlaid on each other.
+    """     
     #Later Maps Kwargs
     laterplots_kwargs = {}
     laterplots_kwargs['colorbar'] = False
@@ -59,16 +76,37 @@ def emerge_plots(mapslist, kwargs_list, show_img= True, return_img= False):
     for imap, current_map in enumerate(mapslist):
 
         #Get First Plot
-        if iplot == 0:
-            all_plots = enplot.get_plots(current_map, show_img= False, return_img= True)
+        if imap == 0:
+            #Establish Plot Kwargs
+            if len(kwargs_list) == 0:
+                kwargs = {}
+            else:
+                kwargs = kwargs_list[imap]
+
+            all_plots = eshow(current_map, 
+                              show_img= False,
+                              return_img= True,
+                              **kwargs
+                             )
         
         #Add Later Plots
         else:
-            current_plot = enplot.get_plots(current_map, show_img= False, return_img= True, **laterplots_kwargs)
+            #Establish Plot Kwargs
+            if len(kwargs_list) == 0:
+                kwargs = laterplots_kwargs
+            else:
+                kwargs = {**laterplots_kwargs, **kwargs_list[imap]}
+
+            current_plot = eshow(current_map,
+                                 show_img= False,
+                                 return_img= True,
+                                 **kwargs
+                                )
+        
             all_plots += current_plot
 
     #Merge Plots
-    out_plots = enplot.merge_plots(first_plot + later_plots)
+    out_plot = enplot.merge_plots(all_plots)
 
     #Show Plot
     if show_img:
