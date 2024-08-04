@@ -3,12 +3,12 @@ import numpy as np
 import sys
 from astropy import units as u
 from astropy.cosmology import Planck15
-from falafel.utils import config
-from orphics import cosmology, maps as omaps 
+# from falafel.utils import config
+# from orphics import cosmology, maps as omaps 
 import healpy as hp
 import yaml
 import myfuncs as ym
-from classy_sz import Class
+# from class_sz import Class
 
 def deg2fsky(sq_deg):
     """
@@ -853,6 +853,19 @@ def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None
 #################################################################################################
 
 def Fields2Cls(probes_list):
+    """
+    Get the names of every unique power spectrum combination possible from given fields.
+
+    Parameters
+    ----------
+    probes_list : list
+        List of names of fields. Their order determines the order of the returned spectra.
+
+    Returns
+    -------
+    list
+        List of names of Cl's. The format is "field1xfield2".
+    """
     #Fields -> Cls Matrix 
     Cls_list = []
     for i, probe1 in enumerate(probes_list):
@@ -864,6 +877,19 @@ def Fields2Cls(probes_list):
 
 
 def Cls2Indices(Cls_list):
+    """
+    Forms a large, multi-spectrum covmat comprised of individual covmats and returns mapping from the names of these individual covmats to their indices within the larger covmat.
+
+    Parameters
+    ----------
+    Cls_list : list
+        List of names of the power spectra you want the covmat for.
+
+    Returns
+    -------
+    dict
+        Mapping from combinations Cl names to indicies in the covmat. The keys are strings of the format "Cl1,Cl2" (names of each individual covmat) and the values are tuples of the indices for the individual covmat.
+    """    
     #Cls Matrix -> Covmat
     probe_to_indices = {}
     for i, iCl in enumerate(Cls_list):
@@ -874,6 +900,19 @@ def Cls2Indices(Cls_list):
 
 
 def Fields2Indices(probes_list):
+    """
+    Get the indices corresponding to individual covmats of a large, multi-probe covmat from a list of fields. This mapping provides every possible individual covmats that corresponds to every possible combo of every power spectrum possible from the given fields.
+
+    Parameters
+    ----------
+    probes_list : list
+        List of names of all possible fields.
+
+    Returns
+    -------
+    dict
+        Mapping from combinations Cl names to indicies in the covmat. The keys are strings of the format "Cl1,Cl2" (names of each individual covmat), where "Cl1" and "Cl2" are of the format "field1xfield2", and the values are tuples of the indices for the individual covmat.
+    """
     #Fields -> Cls Matrix 
     Cls_list = Fields2Cls(probes_list)
          
@@ -884,7 +923,21 @@ def Fields2Indices(probes_list):
 
 
 def getCovmatInfo(labels, info):
+    """
+    Given either Cl's or fields, return relevant info for the covmat. This allows the flexibility of specifying the relevent Cl's manually or automatically. 
 
+    Parameters
+    ----------
+    labels : list
+        Names that describe a covmat. Either the names of the power spectra for that covmat explicitly (canonically of the format "Cl1xCl2"), in which case, the names should correspond to the order of individual covmats of the covmat of interest (for instance, when reading left to right across the covmat); or the names of the fields (in this case, it's assumed that the covmat being described is the full covmat corresponding to every possible 4pt combination of the fields).
+    info : str
+        Type of covmat info you want. Options: "Cls" or "indices".
+
+    Returns
+    -------
+    list or dict
+        If you want "Cls", returns list of names of Cl's. If you want "indices", returns the dictionary that maps from Cl combinations to indices (see 'Cls2Indices' for more info).
+    """
     if 'x' in labels[0]:
         labels_type = 'Cls'
     else:
@@ -907,7 +960,25 @@ def getCovmatInfo(labels, info):
 
     
 def getIndividualCovmat(Cl1, Cl2, big_covmat, covmat_labels):    
+    """
+    Get the covmat that corresponds to a single pair of Cl's from a larger covmat.
 
+    Parameters
+    ----------
+    Cl1 : str
+        Name of the first power spectrum that corresponds to the individual covmat.
+    Cl2 : str
+        Name of the second power spectrum that corresponds to the individual covmat.
+    big_covmat : 2darray
+        Array of the larger covmat of covmats containing the individual covmat you're after.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+
+    Returns
+    -------
+    2darray
+        Array corresponding to the individual covmat.
+    """
     #Get Indices of Individual Covmat
     index_dict = getCovmatInfo(covmat_labels, 'indices')
     i, j = index_dict[f'{Cl1},{Cl2}']
@@ -925,7 +996,29 @@ def getIndividualCovmat(Cl1, Cl2, big_covmat, covmat_labels):
 
 
 def sliceCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, covmat_labels, return_indices= False):    
+    """
+    Take a 2D slice of a large covmat comprised of individual covmats.
 
+    Parameters
+    ----------
+    start_Cl1 : str
+        Name of the power spectrum corresponding to the starting row of the slicing operation.
+    start_Cl2 : str
+        Name of the power spectrum corresponding to the starting column of the slicing operation.
+    end_Cl1 : str
+        Name of the power spectrum corresponding to the ending row of the slicing operation. Inclusive of this end point.
+    end_Cl2 : str
+        Name of the power spectrum corresponding to the ending column of the slicing operation. Inclusive of this end point.
+    big_covmat : 2darray
+        Array of the larger covmat of covmats containing the individual covmats you're after.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+
+    Returns
+    -------
+    2darray (and list, optionally)
+        Sliced array (doesn't have to be symmetric). If "return_indices" is True, will also return the indices used for slicing.
+    """
     #Get Conversion Between Probe Name and Covmat Index
     probes2indices = getCovmatInfo(covmat_labels, 'indices')
     
@@ -948,7 +1041,23 @@ def sliceCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, covmat_label
 
 
 def selectIndivCovmats(big_covmat, covmat_labels, select_Cls_list):
-# Make note that this can be used for reordering your covmat as well
+    """
+    Create a subcovmat by extracting individual covmats from a big covmat. This can also be used to rearrange the individual covmats of the input big covmat as well (to be clear, this function returns a copy; it doesn't perform the rearrangement in-place).
+
+    Parameters
+    ----------
+    big_covmat : 2darray
+        Array of the larger covmat of covmats containing the individual covmats you're after.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+    select_Cls_list : list
+        Names of the Cl's that describe the subcovmat you want to create.
+
+    Returns
+    -------
+    2darray
+        The subcovmat.
+    """
 
     sub_covmat = None
     for select_Cl_row in select_Cls_list:
