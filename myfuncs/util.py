@@ -1013,6 +1013,8 @@ def sliceCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, covmat_label
         Array of the larger covmat of covmats containing the individual covmats you're after.
     covmat_labels : list
         Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+    return_indices : bool, optional
+        List of the indicies involved. Format: [start_row, start_col, end_row, end_col]. By default False.
 
     Returns
     -------
