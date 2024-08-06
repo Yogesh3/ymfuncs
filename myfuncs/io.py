@@ -14,7 +14,8 @@ def readTxt(fname):
     
     with open(fname) as fobj:
         for row in fobj:
-            names_list.append(row.rstrip('\n'))
+            if not row.startswith('#'):
+                names_list.append(row.rstrip('\n'))
     
     return names_list
     
