@@ -8,7 +8,7 @@ from astropy.cosmology import Planck15
 import healpy as hp
 import yaml
 import myfuncs as ym
-# from class_sz import Class
+# from classy_sz import Class
 
 def deg2fsky(sq_deg):
     """
@@ -319,6 +319,20 @@ def cumSN(signal, noise):
 
 
 
+def LenzMasksDict():
+    dust_mask = {}
+
+    dust_mask['1.5'] = '1.5e+20_gp20'
+    dust_mask['1.8'] = '1.8e+20_gp20'
+    dust_mask['2.0'] = '2.0e+20_gp20'
+    dust_mask['2.5'] = '2.5e+20_gp20'
+    dust_mask['3.0'] = '3.0e+20_gp40'
+    dust_mask['4.0'] = '4.0e+20_gp40'
+
+    return dust_mask
+
+
+
 def get_theory_dicts(nells=None,lmax=9000,grad=True):
 
     #Initialize
@@ -543,13 +557,107 @@ def getClassyKappa(params={},
     return ells, Cls_kappa
 
 
-    
+
+def TranslateClassyCIBNames(params=[]):
+
+    long_names = ['Redshift_evolution_of_dust_temperature',
+                  'Dust_temperature_today_in_Kelvins',
+                  'Emissivity_index_of_sed',
+                  'Power_law_index_of_SED_at_high_frequency',
+                  'Redshift_evolution_of_L_M_normalisation',
+                  'Normalisation_of_L_M_relation_in_[JyMPc2/Msun]',
+                  'Most_efficient_halo_mass_in_Msun',
+                  'Size_of_halo_masses_sourcing_CIB_emission',
+                 ]
+
+    short_names = ['alpha',
+                   'T_o',
+                   'beta',
+                   'gamma',
+                   'delta',
+                   'L_o',
+                   'M_eff',
+                   'var'
+                  ]
+
+    translated_params = []
+    for param in params:
+        if param in long_names:
+            from_list = long_names
+            to_list = short_names
+        elif param in short_names:
+            from_list = short_names
+            to_list = long_names
+        else:
+            raise ValueError(f"{param} is not a vaild parameter name (short or long)")
+
+        idx = from_list.index(param)
+        translated_params.append( to_list[idx] )
+
+    return translated_params
+
+
+
+def getCIBconstraints(dataset='Planck13', constraint_type='mean'):
+    params_cib_dict = {}
+
+    if dataset.lower() == 'planck13':
+        if constraint_type == 'mean':
+            params_cib_dict['Redshift_evolution_of_dust_temperature'] =  0.36
+            params_cib_dict['Dust_temperature_today_in_Kelvins'] = 24.4
+            params_cib_dict['Emissivity_index_of_sed'] = 1.75
+            params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7
+            params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 3.6
+            params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.6
+            params_cib_dict['Normalisation_of_L_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8
+            params_cib_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.5
+
+        elif constraint_type == 'err':
+            params_cib_dict['Redshift_evolution_of_dust_temperature'] = 0.05
+            params_cib_dict['Emissivity_index_of_sed'] = 0.06
+            params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 0.2
+            params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 0.2
+            params_cib_dict['Dust_temperature_today_in_Kelvins'] = 1.9
+            params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 0.1
+            params_cib_dict['Normalisation_of_L_M_relation_in_[JyMPc2/Msun]'] = 1.28e-08
+
+        else:
+            raise ValueError("'constraint_type' must be either 'mean' or 'err'")
+
+
+    elif dataset.lower() == 'viero':      # Viero et al
+        if constraint_type == 'mean':
+            params_cib_dict['Redshift_evolution_of_dust_temperature'] =  0.2
+            params_cib_dict['Dust_temperature_today_in_Kelvins'] = 20.7
+            params_cib_dict['Emissivity_index_of_sed'] = 1.6
+            params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7   # not in Viero, so using Planck13
+            params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 2.4
+            params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.3
+            params_cib_dict['Normalisation_of_L_-_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8    # not in Viero, so using Planck13
+            params_cib_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.3
+
+        elif constraint_type == 'err':
+            raise NotImplementedError()
+
+        else:
+            raise ValueError("'constraint_type' must be either 'mean' or 'err'")
+
+
+    else:
+        raise NotImplementedError("Need valid data set name")    
+
+
+    return params_cib_dict
+
+
+
 def getClassyCIB(spectra, 
                  nu_list= {353, 545, 857},
                  params={}, 
                  pop_params={}, 
                  emulFlag=False, 
-                 save_to_yaml=False):
+                 save_to_yaml=False
+                ):
     """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
 
     Parameters
@@ -570,23 +678,14 @@ def getClassyCIB(spectra,
     Returns
     -------
     ells, Cls_dict
-        Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string (i.e. 'freq' for the auto and 'freqxfreq' for the cross).
+        Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string (i.e. 'freq' for the cross and 'freqxfreq' for the auto).
     """
 
     #Get Default Parameters
     default_params = defaultClassyParams()
 
     #CIB Parameters
-    p_CIB_dict = {}
-    # p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
-    p_CIB_dict['Redshift_evolution_of_dust_temperature'] =  0.36
-    p_CIB_dict['Dust_temperature_today_in_Kelvins'] = 24.4
-    p_CIB_dict['Emissivity_index_of_sed'] = 1.75
-    p_CIB_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7
-    p_CIB_dict['Redshift_evolution_of_L_-_M_normalisation'] = 3.6
-    p_CIB_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.6
-    p_CIB_dict['Normalisation_of_L_-_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8
-    p_CIB_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.5
+    p_CIB_dict = getCIBconstraints()
 
     #Establish CIB Frequencies
     nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
@@ -1042,18 +1141,18 @@ def sliceCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, covmat_label
 
 
 
-def selectIndivCovmats(big_covmat, covmat_labels, select_Cls_list):
+def selectIndivCovmats(select_Cls_list, big_covmat, covmat_labels):
     """
     Create a subcovmat by extracting individual covmats from a big covmat. This can also be used to rearrange the individual covmats of the input big covmat as well (to be clear, this function returns a copy; it doesn't perform the rearrangement in-place).
 
     Parameters
     ----------
+    select_Cls_list : list
+        Names of the Cl's that describe the subcovmat you want to create.
     big_covmat : 2darray
         Array of the larger covmat of covmats containing the individual covmats you're after.
     covmat_labels : list
         Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
-    select_Cls_list : list
-        Names of the Cl's that describe the subcovmat you want to create.
 
     Returns
     -------

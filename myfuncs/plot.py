@@ -421,7 +421,6 @@ def ratioPlot(xs= None,
               ratio_type = 'percent discrepancy'
              ):
 
-    """
     valid_ratios = ['percent discrepancy', 'ratio']
     if ratio_type not in valid_ratios:
         raise ValueError(f"The only valid ratios are {valid_ratios}")
