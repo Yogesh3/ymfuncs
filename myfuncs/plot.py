@@ -163,7 +163,7 @@ def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin
     Returns
     -------
     Cycler
-        Desired color cycler
+        Desired color cycler. Will be a list if 'iterFlag' = True
     """
     if isinstance(cmap, str):
         if use_index == "auto":
