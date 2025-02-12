@@ -144,7 +144,7 @@ def savePickle(fname, cucumber):
         Whatever was saved in the file
     """    
     with open(fname, 'wb') as fobj:
-        pickle.dump(fobj)
+        pickle.dump(cucumber, fobj)
 
 
 
