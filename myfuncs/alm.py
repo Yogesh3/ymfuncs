@@ -28,6 +28,10 @@ def lm2idx(alm):
     return aidx
 
 
+def ellCut(alm_healpy, ellcut):
+    return yalm.lm2idx( yalm.idx2lm(alm_healpy)[:int(ellcut+1), :int(ellcut+1)] )
+
+
 def lm2cl(alm, weights=None, normalize=True):
     """Converts from l,m space to ell space. Weighs down the monopole and ignores NaN's. Takes m-dependent weights.
 
