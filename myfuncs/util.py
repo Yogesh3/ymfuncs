@@ -8,7 +8,7 @@ from orphics import cosmology, maps as omaps
 import healpy as hp
 import yaml
 import myfuncs as ym
-from classy_sz import Class
+# from classy_sz import Class
 
 def deg2fsky(sq_deg):
     """
