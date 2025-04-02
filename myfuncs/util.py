@@ -3,7 +3,7 @@ import numpy as np
 import sys
 from astropy import units as u
 from astropy.cosmology import Planck15
-from falafel.utils import config
+# from falafel.utils import config
 from orphics import cosmology, maps as omaps 
 import healpy as hp
 import yaml
@@ -12,7 +12,7 @@ import myfuncs as ym
 
 def round_percent(number, nth_non_nine= 1):
     """
-    Rounds at the decimal point corresponding to the nth non-nine value. This is useful if you are, e.g. rounding a percent that is very close to the next order of magnitude (99.9994325 => 99.9994)
+    Rounds at the decimal point corresponding to the nth non-nine value. This is useful if you are, e.g. rounding a percent that is very close to the next order of magnitude (99.9994325 => 99.9994). Also, ignores zeros (good for really low percentages).
 
     Parameters
     ----------
@@ -33,12 +33,12 @@ def round_percent(number, nth_non_nine= 1):
     #Find Decimal Place to Round To
     nth_found_nine = 0
     for decimal_place, digit in enumerate( fractional_part ):
-        if int( digit ) != 9:
+        if int( digit ) != 9 and int( digit ) != 0:
             nth_found_nine += 1
             if nth_found_nine == nth_non_nine:
                 break
 
-    return round(number, decimal_place)
+    return round(number, decimal_place+1)
 
 
 
