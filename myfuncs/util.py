@@ -8,6 +8,38 @@ from classy_sz import Class
 import yaml
 import myfuncs as ym
 
+def round_percent(number, nth_non_nine= 1):
+    """
+    Rounds at the decimal point corresponding to the nth non-nine value. This is useful if you are, e.g. rounding a percent that is very close to the next order of magnitude (99.9994325 => 99.9994)
+
+    Parameters
+    ----------
+    number : float
+        The number to round
+    nth_non_nine : int, optional
+        The minimum number of non-nine values to have before rounding
+
+    Returns
+    -------
+    float
+        The rounded number
+    """    
+    #Extract Decimal Points
+    str_num = str(number)
+    fractional_part = str_num.split('.')[1]
+
+    #Find Decimal Place to Round To
+    nth_found_nine = 0
+    for decimal_place, digit in enumerate( fractional_part ):
+        if int( digit ) != 9:
+            nth_found_nine += 1
+            if nth_found_nine == nth_non_nine:
+                break
+
+    return round(number, decimal_place)
+
+
+
 def closest_match(array, reference, return_indices= False):
     """
     Find the values in a reference array that most closely match an aribitrary array. Works for unequal sizes for each array.
