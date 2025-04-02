@@ -163,7 +163,7 @@ def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin
     Returns
     -------
     Cycler
-        Desired color cycler
+        Desired color cycler. Will be a list if 'iterFlag' = True
     """
     if isinstance(cmap, str):
         if use_index == "auto":
@@ -262,15 +262,43 @@ def plotCovmat(Covmat, covmat_labels,
                clim = None,
                figure_size = (10,10)
               ):
-    
+    """
+    Plot a covmat.
+
+    Parameters
+    ----------
+    Covmat : 2darray
+        Covmat to plot. Can be an individual covmat or a larger, multi-probe covmat.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+    Cls_names_to_plot : list, optional
+        List of spectra whose names you want (see "select_Cls_list" argument of util.selectIndivCovmats for more info). By default None.
+    slice_Cls : list, optional
+        Names of spectra used for slicing the covmat. Format is [start_Cl1, start_Cl2, end_Cl1, end_Cl2] (see arguments of the same names from util.sliceCovmat for more info). By default None.
+    clim : list, optional
+        List of values in covmat that correspond to the colorbar min and max. Format: [min, max]. By default None.
+    figure_size : tuple, optional
+        Size of the output plot. By default (10,10).
+
+    Returns
+    -------
+    fig, ax
+        Figure and axis of the output plot.
+
+    Raises
+    ------
+    ValueError
+        Can only provide one of the following: 'Cls_names_to_plot', 'slice_Cls'  
+    """    
     if Cls_names_to_plot is not None and slice_Cls is not None: 
         raise ValueError("Specifying both 'Cls_names_to_plot' and 'slice_Cls' is ambiguous. Please provide only one.")
     
-    #Get Covmat Info
-    Cls_names = yutil.getCovmatInfo(covmat_labels, 'cls')
+    #Get Spectra Names Corresponding to Covmat
+    if Cls_names_to_plot is  None:
+        Cls_names = yutil.getCovmatInfo(covmat_labels, 'cls')
 
     #Use Custom Spectra
-    if Cls_names_to_plot is not None:
+    else:
         Cls_names = Cls_names_to_plot
 
     #Set Slice Covmat Defaults

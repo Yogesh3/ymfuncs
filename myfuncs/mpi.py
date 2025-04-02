@@ -22,8 +22,11 @@ def distMPI(total_tasks):
     Nranks = comm.Get_size()
 
     #Break Up Work
-    tasks_per_rank, displacements = calcMPI(len(total_tasks), Nranks)
-    subset = total_tasks[displacements[current_rank] : displacements[current_rank+1]]
+    if len(total_tasks) == 1:
+        subset = total_tasks
+    else:
+        tasks_per_rank, displacements = calcMPI(len(total_tasks), Nranks)
+        subset = total_tasks[displacements[current_rank] : displacements[current_rank+1]]
 
     return comm, current_rank, subset
 

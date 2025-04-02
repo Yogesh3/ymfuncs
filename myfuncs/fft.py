@@ -87,7 +87,7 @@ def map2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, apodizeFlag= Tr
     
     #Fourier Transform
     for pixmap in maps:
-        ffts.append(enmap.fft(pixmap1, normalize='physical'))
+        ffts.append(enmap.fft(pixmap, normalize='physical'))
 
     #Power Spectrum Calculation
     ells_binned, Cls = fft2cl( xcorr(*ffts), ell_edges, pixmap1.modlmap())
