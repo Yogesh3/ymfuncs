@@ -7,6 +7,14 @@ import numpy as np
 from myfuncs import util as yutil
 
 
+ibm_colors = [(100/255, 143/255, 255/255),
+              (120/255, 94/255, 240/255),
+              (220/255, 38/255, 127/255),
+              (254/255, 97/255, 0/255),
+              (255/255, 176/255, 0/255)]
+
+
+
 def eshow(the_map, show_img= True, return_img= False, **user_kwargs): 
     """
     Wrapper to plot enmaps. Includes defaults for the image.
