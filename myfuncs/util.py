@@ -60,6 +60,39 @@ def deg2fsky(sq_deg):
 
 
 
+def intersection(main_array, other_array, return_indices= False):
+    """
+    Mutual elements between two array-like objects (they're cast to arrays here).
+
+    Parameters
+    ----------
+    main_array : 1darray
+        The returned elements are from this array
+    other_array : 1darray
+        The other array with elements to match
+
+    Returns
+    -------
+    1darray
+        Array of mutual elements.
+    """
+    #Get Intersection Masks
+    set_other = set(other_array)
+    set_main = set(main_array)
+    mask_main = np.array([x in set_other for x in main_array])
+    mask_other = np.array([x in set_main for x in other_array])
+
+    #Get Indices
+    main_idxs = np.arange(len(main_array))[mask_main]
+    other_idxs = np.arange(len(other_array))[mask_other]
+
+    if return_indices:
+        return main_array[mask_main], (main_idxs, other_idxs)
+    else:
+        return main_array[mask_main]
+
+
+
 def closest_match(array, reference, return_indices= False):
     """
     Find the values in a reference array that most closely match an aribitrary array. Works for unequal sizes for each array.
