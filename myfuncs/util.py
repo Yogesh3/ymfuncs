@@ -8,7 +8,7 @@ from orphics import cosmology, maps as omaps
 import healpy as hp
 import yaml
 import myfuncs as ym
-# from classy_sz import Class
+from classy_sz import Class
 
 def round_percent(number, nth_non_nine= 1):
     """
@@ -698,7 +698,7 @@ def getCIBconstraints(dataset='Planck13', constraint_type='mean'):
             params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7   # not in Viero, so using Planck13
             params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 2.4
             params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.3
-            params_cib_dict['Normalisation_of_L_-_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8    # not in Viero, so using Planck13
+            params_cib_dict['Normalisation_of_L_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8    # not in Viero, so using Planck13
             params_cib_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.3
 
         elif constraint_type == 'err':
