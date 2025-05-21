@@ -237,9 +237,9 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
 
         #Print
         if Nthings > 0:
-            print(f'\nTook {time_min:.0f} min and {time_sec} sec for {Nthings} ' + thing_type)
+            mpiprint(f'\nTook {time_min:.0f} min and {time_sec} sec for {Nthings} ' + thing_type)
         else:
-            print(f'\nTook {time_min:.0f} min and {time_sec} sec')
+            mpiprint(f'\nTook {time_min:.0f} min and {time_sec} sec')
 
     elif hourFlag:
         #Calculations
@@ -248,9 +248,9 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
 
         #Print
         if Nthings > 0:
-            print(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
+            mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
         else:
-            print(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
+            mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
 
 
 def mpiprint(string):
