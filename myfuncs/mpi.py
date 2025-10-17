@@ -124,7 +124,7 @@ def Gatherv(comm, rank_data, Ntasks_tot, root_rank=0):
 
 
 
-def Reduce(comm, array, op='mean', root_rank=0):
+def nanReduce(comm, array, op='mean', root_rank=0):
     """Just a "wrapper" for MPI Reduce (doesn't actually call MPI's Reduce) but ignores NaN's. Supports several operations.
 
     Parameters
@@ -172,7 +172,7 @@ def Reduce(comm, array, op='mean', root_rank=0):
 
 
 
-def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time):
+def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time, thing_type='sim'):
     """Prints time it took to complete a job on each rank and estimate remaining total time assuming that all ranks take the same amount of time (the idea is that you have multiple ranks performing a series of tasks).
 
     Parameters
@@ -189,6 +189,8 @@ def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time):
         Total number of tasks on current rank
     tot_time : float
         Running total time
+    thing_type : str, optional
+        Name of the type of task (singular), by default 'sims'
 
     Returns
     -------
@@ -198,7 +200,7 @@ def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time):
     sim_time = end - start 
     tot_time += sim_time
 
-    print(f'\nRank {rank} completed sim {simnum} / {rank_Nsims} in {sim_time:.0f} seconds.')
+    print(f'\nRank {rank} completed {thing_type} {simnum} / {rank_Nsims} in {sim_time:.0f} seconds.')
     sys.stdout.flush()
 
     if simnum != rank_Nsims:
@@ -226,7 +228,7 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
     Nthings : int, optional
         Number of tasks, by default 0
     thing_type : str, optional
-        Name of the type of task, by default 'sims'
+        Name of the type of task (plural), by default 'sims'
     """
 
     time_min, time_sec = divmod(end-start, 60)
@@ -237,9 +239,9 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
 
         #Print
         if Nthings > 0:
-            print(f'\nTook {time_min:.0f} min and {time_sec} sec for {Nthings} ' + thing_type)
+            mpiprint(f'\nTook {time_min:.0f} min and {time_sec} sec for {Nthings} ' + thing_type)
         else:
-            print(f'\nTook {time_min:.0f} min and {time_sec} sec')
+            mpiprint(f'\nTook {time_min:.0f} min and {time_sec} sec')
 
     elif hourFlag:
         #Calculations
@@ -248,9 +250,9 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
 
         #Print
         if Nthings > 0:
-            print(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
+            mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
         else:
-            print(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
+            mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
 
 
 def mpiprint(string):

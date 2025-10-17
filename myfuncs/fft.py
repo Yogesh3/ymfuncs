@@ -56,15 +56,25 @@ def fft2cl(fft, bin_edges, modlmap):
     return cents, Cl
 
 
-def map2cl(ell_edges, pixmap1, mask1, pixmap2= None, mask2=None, apodizeFlag= True, return_wfac= False):
+def map2cl(ell_edges, 
+           pixmap1, 
+           mask1= None, 
+           pixmap2= None, 
+           mask2=None, 
+           apodizeFlag= True, 
+           return_wfac= False
+         ):
 
     if pixmap2 is None:
         pixmap2 = pixmap1
 
     #Create Composite Mask
-    if mask2 is None:
+    if mask1 is None and mask2 is None:
+        mask = np.ones(pixmap1.shape)
+    elif mask1 is None:
+        mask = mask2**2
+    elif mask2 is None:
         mask = mask1**2
-        pixmap2 = pixmap1
     else:
         mask = mask1 * mask2
 

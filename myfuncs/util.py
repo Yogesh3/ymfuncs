@@ -4,11 +4,43 @@ import sys
 from astropy import units as u
 from astropy.cosmology import Planck15
 # from falafel.utils import config
-# from orphics import cosmology, maps as omaps 
+from orphics import cosmology, maps as omaps 
 import healpy as hp
 import yaml
 import myfuncs as ym
 # from classy_sz import Class
+
+def round_percent(number, nth_non_nine= 1):
+    """
+    Rounds at the decimal point corresponding to the nth non-nine value. This is useful if you are, e.g. rounding a percent that is very close to the next order of magnitude (99.9994325 => 99.9994). Also, ignores zeros (good for really low percentages).
+
+    Parameters
+    ----------
+    number : float
+        The number to round
+    nth_non_nine : int, optional
+        The minimum number of non-nine values to have before rounding
+
+    Returns
+    -------
+    float
+        The rounded number
+    """    
+    #Extract Decimal Points
+    str_num = str(number)
+    fractional_part = str_num.split('.')[1]
+
+    #Find Decimal Place to Round To
+    nth_found_nine = 0
+    for decimal_place, digit in enumerate( fractional_part ):
+        if int( digit ) != 9 and int( digit ) != 0:
+            nth_found_nine += 1
+            if nth_found_nine == nth_non_nine:
+                break
+
+    return round(number, decimal_place+1)
+
+
 
 def deg2fsky(sq_deg):
     """
@@ -57,6 +89,39 @@ def round_percent(number, nth_non_nine= 1):
                 break
 
     return round(number, decimal_place)
+
+
+
+def intersection(main_array, other_array, return_indices= False):
+    """
+    Mutual elements between two array-like objects (they're cast to arrays here).
+
+    Parameters
+    ----------
+    main_array : 1darray
+        The returned elements are from this array
+    other_array : 1darray
+        The other array with elements to match
+
+    Returns
+    -------
+    1darray
+        Array of mutual elements.
+    """
+    #Get Intersection Masks
+    set_other = set(other_array)
+    set_main = set(main_array)
+    mask_main = np.array([x in set_other for x in main_array])
+    mask_other = np.array([x in set_main for x in other_array])
+
+    #Get Indices
+    main_idxs = np.arange(len(main_array))[mask_main]
+    other_idxs = np.arange(len(other_array))[mask_other]
+
+    if return_indices:
+        return main_array[mask_main], (main_idxs, other_idxs)
+    else:
+        return main_array[mask_main]
 
 
 
@@ -665,7 +730,7 @@ def getCIBconstraints(dataset='Planck13', constraint_type='mean'):
             params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7   # not in Viero, so using Planck13
             params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 2.4
             params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.3
-            params_cib_dict['Normalisation_of_L_-_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8    # not in Viero, so using Planck13
+            params_cib_dict['Normalisation_of_L_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8    # not in Viero, so using Planck13
             params_cib_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.3
 
         elif constraint_type == 'err':
