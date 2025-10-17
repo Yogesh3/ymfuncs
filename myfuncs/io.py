@@ -2,6 +2,7 @@ import healpy as hp
 from pixell import enmap
 import numpy as np
 import os
+import pickle
 
 
 def readTxt(fname):
@@ -14,7 +15,8 @@ def readTxt(fname):
     
     with open(fname) as fobj:
         for row in fobj:
-            names_list.append(row.rstrip('\n'))
+            if not row.startswith('#'):
+                names_list.append(row.rstrip('\n'))
     
     return names_list
     
@@ -101,6 +103,48 @@ def readAlmPrecisely(almfile_name):
     alm = np.cdouble(alm)
 
     return alm
+
+
+
+def loadPickle(fname):
+    """
+    Load a pickled object saved as binary to file.
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file
+
+    Returns
+    -------
+    object
+        Whatever was saved in the file
+    """    
+    with open(fname, 'rb') as fobj:
+        pickled_object = pickle.load(fobj)
+
+    return pickled_object
+
+
+
+def savePickle(fname, cucumber):
+    """
+    Save object as a binary to a file.
+
+    Parameters
+    ----------
+    fname : str
+        Name of the file
+    cucumber : obj
+        Object to be pickled
+
+    Returns
+    -------
+    object
+        Whatever was saved in the file
+    """    
+    with open(fname, 'wb') as fobj:
+        pickle.dump(cucumber, fobj)
 
 
 

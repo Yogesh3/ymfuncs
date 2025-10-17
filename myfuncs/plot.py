@@ -7,23 +7,25 @@ import numpy as np
 from myfuncs import util as yutil
 
 
-def eshow(*plotslist, **user_kwargs): 
-    ''' 
-    Wrapper to plot enmaps. Sets defaults for the map images and allows to combine maps.
-    '''
+def eshow(the_map, show_img= True, return_img= False, **user_kwargs): 
+    """
+    Wrapper to plot enmaps. Includes defaults for the image.
+
+    Parameters
+    ----------
+    the_map : enmap
+        Enmap object to plot
+    show_img : bool, optional
+        Whether or not to show the image. By default True
+    return_img : bool, optional
+        Whether or not to return the enplot object. By default False
+
+    Returns
+    -------
+    enplot object, optional
+        Plot object.
+    """     
         
-    #Combine Multiple Maps into a Single Image?
-    if 'combine' in user_kwargs.keys():
-        combineFlag = user_kwargs.pop('combine')
-    else:
-        combineFlag = False
-
-    #Return Image?
-    if 'return_img' in user_kwargs.keys():
-        return_img = True
-    else:
-        return_img = False
-
     #Default Settings
     default_kwargs = {}
     default_kwargs['ticks'] = 10
@@ -32,36 +34,87 @@ def eshow(*plotslist, **user_kwargs):
     default_kwargs['mask'] = 0
     total_kwargs = {**default_kwargs, **user_kwargs}
 
-    #Create Plot(s)
-    if combineFlag:
-        #Later Maps Kwargs
-        laterplots_kwargs = {}
-        laterplots_kwargs['colorbar'] = False
-        laterplots_kwargs['no_image'] = True
-        laterplots_kwargs['contours'] = 0.1
-        laterplots_kwargs = {**total_kwargs, **laterplots_kwargs}
+    #Create Plot
+    out_plot = enplot.get_plots(the_map, **total_kwargs)
 
-        # for plot, colorscheme in zip(plotslist, colorize.schemes.keys()):
-        #     total_kwargs = defau
+    #Show Plot
+    if show_img:
+        enplot.show(out_plot, method = "ipython")
 
-        #Get Plots
-        first_plot = enplot.get_plots(plotslist[0], **total_kwargs)
-        later_plots = enplot.get_plots(*plotslist[1:], **laterplots_kwargs)
-
-        #Merge Plots
-        # all_plots = []
-        # all_plots.append(first_plot)
-        # all_plots.extend(later_plots)
-        # import pdb; pdb.set_trace()
-        out_plots = enplot.merge_plots(first_plot + later_plots)
-
-    else:
-        out_plots = enplot.get_plots(*plotslist, **total_kwargs)
-
-    enplot.show(out_plots, method = "ipython")
-
+    #Return Image
     if return_img:
-        return out_plots
+        return out_plot
+
+
+
+def emerge_plots(mapslist, kwargs_list= [], show_img= True, return_img= False):
+    """
+    Wrapper to merge enmaps into a single overlay plot. While defaults for each map are provided, they don't really make sense for more than 2 maps (all maps >=2 are indentical contours), so make sure to specify how you want each plot to look.
+
+    Parameters
+    ----------
+    mapslist : list
+        List of enmaps.
+    kwargs_list : list, optional
+        List of dicts with enplot kwargs that specify how each map looks. By default []
+    show_img : bool, optional
+        Whether or not to show the image. By default True
+    return_img : bool, optional
+        Whether or not to return the enplot object. By default False
+
+    Returns
+    -------
+    enplot object, optional
+        Plot object of all maps overlaid on each other.
+    """     
+    #Later Maps Kwargs
+    laterplots_kwargs = {}
+    laterplots_kwargs['colorbar'] = False
+    laterplots_kwargs['no_image'] = True
+    laterplots_kwargs['contours'] = 0.1
+
+    for imap, current_map in enumerate(mapslist):
+
+        #Get First Plot
+        if imap == 0:
+            #Establish Plot Kwargs
+            if len(kwargs_list) == 0:
+                kwargs = {}
+            else:
+                kwargs = kwargs_list[imap]
+
+            all_plots = eshow(current_map, 
+                              show_img= False,
+                              return_img= True,
+                              **kwargs
+                             )
+        
+        #Add Later Plots
+        else:
+            #Establish Plot Kwargs
+            if len(kwargs_list) == 0:
+                kwargs = laterplots_kwargs
+            else:
+                kwargs = {**laterplots_kwargs, **kwargs_list[imap]}
+
+            current_plot = eshow(current_map,
+                                 show_img= False,
+                                 return_img= True,
+                                 **kwargs
+                                )
+        
+            all_plots += current_plot
+
+    #Merge Plots
+    out_plot = enplot.merge_plots(all_plots)
+
+    #Show Plot
+    if show_img:
+        enplot.show(out_plot, method = "ipython")
+
+    #Return Image
+    if return_img:
+        return out_plot
 
 
 
@@ -110,7 +163,7 @@ def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin
     Returns
     -------
     Cycler
-        Desired color cycler
+        Desired color cycler. Will be a list if 'iterFlag' = True
     """
     if isinstance(cmap, str):
         if use_index == "auto":
@@ -203,40 +256,136 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 
 
 
-def plotCovmat(Covmat, fields_names_list):
-    
-    #Get Covmat Info
-    Cls_names = yutil.Fields2Cls(fields_names_list)
-    N_Cls = len(Cls_names)
-    cov_cls2indices_dict = yutil.Fields2Indices(fields_names_list)
+def plotCovmat(Covmat, covmat_labels,
+               Cls_names_to_plot = None,
+               slice_Cls = None,
+               clim = None,
+               figure_size = (10,10)
+              ):
+    """
+    Plot a covmat.
 
-    fig, ax = plt.subplots( N_Cls, N_Cls, 
-                            figsize = (10, 10),
+    Parameters
+    ----------
+    Covmat : 2darray
+        Covmat to plot. Can be an individual covmat or a larger, multi-probe covmat.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+    Cls_names_to_plot : list, optional
+        List of spectra whose names you want (see "select_Cls_list" argument of util.selectIndivCovmats for more info). By default None.
+    slice_Cls : list, optional
+        Names of spectra used for slicing the covmat. Format is [start_Cl1, start_Cl2, end_Cl1, end_Cl2] (see arguments of the same names from util.sliceCovmat for more info). By default None.
+    clim : list, optional
+        List of values in covmat that correspond to the colorbar min and max. Format: [min, max]. By default None.
+    figure_size : tuple, optional
+        Size of the output plot. By default (10,10).
+
+    Returns
+    -------
+    fig, ax
+        Figure and axis of the output plot.
+
+    Raises
+    ------
+    ValueError
+        Can only provide one of the following: 'Cls_names_to_plot', 'slice_Cls'  
+    """    
+    if Cls_names_to_plot is not None and slice_Cls is not None: 
+        raise ValueError("Specifying both 'Cls_names_to_plot' and 'slice_Cls' is ambiguous. Please provide only one.")
+    
+    #Get Spectra Names Corresponding to Covmat
+    if Cls_names_to_plot is  None:
+        Cls_names = yutil.getCovmatInfo(covmat_labels, 'cls')
+
+    #Use Custom Spectra
+    else:
+        Cls_names = Cls_names_to_plot
+
+    #Set Slice Covmat Defaults
+    if slice_Cls is None:
+        subCovmat_indices = [ 0, 0, len(Cls_names)-1, len(Cls_names)-1 ]
+
+    #Slice Covmat
+    else:
+        _, subCovmat_indices = yutil.sliceCovmat(*slice_Cls, Covmat, covmat_labels, return_indices= True)
+
+    #Colors
+    if clim is None:
+        cmin = Covmat.min()
+        cmax = Covmat.max()
+    else:
+        cmin = clim[0]
+        cmax = clim[1]
+
+    #Set up Figure
+    N_iax = len( np.arange(subCovmat_indices[0], subCovmat_indices[2]+1) )
+    N_jax = len( np.arange(subCovmat_indices[1], subCovmat_indices[3]+1) )
+
+    fig, ax = plt.subplots( N_iax, N_jax, 
+                            figsize = figure_size,
                             sharex = True,
-                            sharey = True)
+                            sharey = True,
+                            squeeze= False)
     
     #Plot Individual Covmats on the Large Covmat Canvas
-    for iCl in Cls_names:
-        for jCl in Cls_names:
+    iax = 0
+    for iCov, Cl_name_row in enumerate(Cls_names):
+
+        if iCov not in range(subCovmat_indices[0], subCovmat_indices[2]+1):
+            continue
+
+        jax = 0
+        for jCov, Cl_name_col in enumerate(Cls_names):
+
+            if jCov not in range(subCovmat_indices[1], subCovmat_indices[3]+1):
+               continue
 
             #Get Individual Covmat
-            indiv_covmat = yutil.getIndividualCovmat(iCl, jCl, Covmat, fields_names_list)
-            i, j = cov_cls2indices_dict[f'{iCl},{jCl}']
+            indiv_covmat = yutil.getIndividualCovmat(Cl_name_row, Cl_name_col, Covmat, covmat_labels)
 
             #Plot Individual Covmat
-            ax[i,j].imshow(indiv_covmat, cmap='RdBu', vmin= Covmat.min, vmax= Covmat.max)
+            ax[iax,jax].imshow(indiv_covmat, cmap='RdBu', vmin= cmin, vmax= cmax)
 
             #Adjust Individual Covmat's Axis
-            ax[i,j].set_aspect('equal')
-            ax.xaxis.set_label_position('top')
-            ax[i,j].tick_params(axis='both', 
+            ax[iax,jax].set_aspect('equal')
+            ax[iax,jax].tick_params(axis='both', 
                                 direction='in',
                                 top= True, right= True,
                                 labelbottom= False, labelleft= False)
 
-    ax[0,0].set_ylabel(rf'{iCl},{jCl}')
-    plt.subplots_adjust(wspace=0, hspace=0)
-    plt.colorbar()
+            #Create Latex Label
+            ifields = Cl_name_row.split('x')
+            for idx, field in enumerate(ifields):
+                if field == 'kappa':
+                    ifields[idx] = '\kappa'
+            Cl_name_row_latex = '\;\mathrm{x}\;'.join( ifields ) 
+            jfields = Cl_name_col.split('x')
+            for idx, field in enumerate(jfields):
+                if field == 'kappa':
+                    jfields[idx] = '\kappa'
+            Cl_name_col_latex = '\;\mathrm{x}\;'.join( jfields ) 
+
+            #Add Cl Labels
+            ax[iax,jax].xaxis.set_label_position('top')
+            if jax == 0:
+                ax[iax,jax].set_ylabel(fr'${Cl_name_row_latex}$', size='x-large')
+            if iax == 0:
+                ax[iax,jax].set_xlabel(fr'${Cl_name_col_latex}$', size='x-large')
+
+            jax += 1
+
+        iax += 1
+
+    plt.subplots_adjust(wspace=0, hspace=0, 
+                        right=0.9,
+                        bottom=0.1)
+
+    #Colorbar
+    cbar_ax = fig.add_axes([0.95, 0.10, 0.03, 0.8])
+    norm = mpl.colors.Normalize(vmin= cmin, vmax= cmax)
+    plt.colorbar(mpl.cm.ScalarMappable(norm=norm, cmap='RdBu'),
+                #  ax = ax.ravel().tolist() 
+                 cax = cbar_ax)
 
     return fig, ax
 
@@ -281,7 +430,7 @@ def ratioPlot(xs= None,
     fig, ax = plt.subplots(1,2, figsize=(15,5))
 
     #Plot Data
-    if xs:
+    if xs is not None:
         #Absolute Plot
         for ylabel, yline in ylines_dict.items():
             ax[0].plot(xs, yline, label= ylabel, **lines_kwargs)
@@ -296,10 +445,11 @@ def ratioPlot(xs= None,
                 ax[1].plot(xs,  yline / ref_line  * 100, label= ylabel, **lines_kwargs)
     
     #Plot Horizontal Line on Relative Plot
-    if ratio_type == 'percent discrepancy':
-        ax[1].axhline(y= 0, color='black')
-    elif ratio_type == 'ratio':
-        ax[1].axhline(y= 1, color='black')
+    if ylines_dict:
+        if ratio_type == 'percent discrepancy':
+            ax[1].axhline(y= 0, color='black', label= ref_label)
+        elif ratio_type == 'ratio':
+            ax[1].axhline(y= 1 * 100, color='black', label= ref_label)
 
     #Trimmings: Absolute Plot
     ax[0].set_ylabel(r'$C_{\ell}$')
@@ -311,12 +461,13 @@ def ratioPlot(xs= None,
     if ratio_type == 'percent discrepancy':
         ax[1].set_title('Percent Discrepancy')
         ax[1].set_ylabel('[%]')
-        if xs:
+        if xs is not None:
             ax[1].set_ylabel(rf'$(C_{{\ell}} - C_{{\ell}}^{{ {list(yref_dict)[0]} }} )/ C_{{\ell}}^{{ {list(yref_dict)[0]} }} \; [\%]$')
     elif ratio_type == 'ratio':
         ax[1].set_title('Ratios')
         ax[1].set_ylabel('[%]')
-        if xs:
+        if xs is not None:
+            # ax[1].set_ylabel(rf'$C_{{\ell}} / C_{{\ell}}^{{ \textrm{{ {list(yref_dict)[0]} }} }} \; [\%]$')
             ax[1].set_ylabel(rf'$C_{{\ell}} / C_{{\ell}}^{{ {list(yref_dict)[0]} }} \; [\%]$')
     ax[1].set_xlabel(r'$\ell$')
     ax[1].grid(which='both')

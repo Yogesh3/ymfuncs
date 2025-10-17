@@ -1,12 +1,32 @@
+import pdb
 import numpy as np
+import sys
 from astropy import units as u
 from astropy.cosmology import Planck15
-from falafel.utils import config
-from orphics import cosmology, maps as omaps 
+# from falafel.utils import config
+# from orphics import cosmology, maps as omaps 
 import healpy as hp
-from classy_sz import Class
 import yaml
 import myfuncs as ym
+# from classy_sz import Class
+
+def deg2fsky(sq_deg):
+    """
+    Converts square degrees on the sky to the sky fraction.
+
+    Parameters
+    ----------
+    sq_deg : float
+        Area in square degrees
+
+    Returns
+    -------
+    float
+        sky fraction
+    """    
+    return sq_deg * (np.pi/180)**2 / (4 * np.pi)    
+
+
 
 def round_percent(number, nth_non_nine= 1):
     """
@@ -60,6 +80,9 @@ def closest_match(array, reference, return_indices= False):
     list, optional 
         List of indices in the reference array that correspond to the matched elements
     """
+    #Initializations
+    array = np.array(array)
+    reference = np.array(reference)
     matched_array = []
     matched_indices = []
 
@@ -74,6 +97,39 @@ def closest_match(array, reference, return_indices= False):
         return matched_array, matched_indices
     else:
         return matched_array
+
+
+
+def find_duplicates_mask(input_array):
+    """
+    Find all locations where entries in an array are repeated. 
+    
+    Using Numpy's "unique" function alone doesn't work because it lumps together non-repeated values with the first instance of a repeated value. Using it to obtain the locations of duplications will therefore exclude the first instance of a repeated value.
+
+    Parameters
+    ----------
+    input_array : array
+        The array. Note that this must be an array b/c this function uses numpy's "shape" attribute.
+
+    Returns
+    -------
+    array
+        Mask that selects every instance of a repeated value in the input array
+    """
+    #Get All But the First Duplications' Locations
+    duplications_mask_no_first = np.ones(input_array.shape, dtype=bool)
+    duplications_mask_no_first[ np.unique(input_array, return_index=True)[1] ] = False   # selects unique values and FIRST instance of repeated values
+
+    #Get Values That Repeat
+    duplicated_values = np.unique(input_array[duplications_mask_no_first])
+
+    #Get All Instances of Repeated Values
+    duplications_mask_all = np.zeros(input_array.shape, dtype=bool)
+    for duplication in duplicated_values:
+        duplicates_idxs = np.argwhere(input_array == duplication)
+        duplications_mask_all[duplicates_idxs] = True
+
+    return duplications_mask_all
 
 
 
@@ -253,6 +309,34 @@ def sort_str_list(l):
 
 
 
+def get_methods(object, spacing=20):
+    """
+    Print the methods of an object with descriptions. Copied/pasted from https://stackoverflow.com/questions/34439/finding-what-methods-a-python-object-has.
+
+    Parameters
+    ----------
+    object : object type
+        The object you want the methods of
+    spacing : int, optional
+        _description_. By default 20
+    """
+
+    methodList = []
+    for method_name in dir(object):
+        try:
+            if callable(getattr(object, method_name)):
+                methodList.append(str(method_name))
+        except Exception:
+            methodList.append(str(method_name))
+    processFunc = (lambda s: ' '.join(s.split())) or (lambda s: s)
+    for method in methodList:
+        try:
+            print(str(method.ljust(spacing)) + ' ' + processFunc(str(getattr(object, method).__doc__)[0:90]))
+        except Exception:
+            print(method.ljust(spacing) + ' ' + ' getattr() failed')
+
+
+
 def percentDiscrepancy(exp, ref):
     return (exp - ref) / ref * 100
 
@@ -260,6 +344,24 @@ def percentDiscrepancy(exp, ref):
 
 def SN(signal, noise):
     return np.sqrt(np.nansum( signal**2 / noise**2 ))
+
+
+def cumSN(signal, noise):
+    return np.sqrt(np.nancumsum( signal**2 / noise**2 ))
+
+
+
+def LenzMasksDict():
+    dust_mask = {}
+
+    dust_mask['1.5'] = '1.5e+20_gp20'
+    dust_mask['1.8'] = '1.8e+20_gp20'
+    dust_mask['2.0'] = '2.0e+20_gp20'
+    dust_mask['2.5'] = '2.5e+20_gp20'
+    dust_mask['3.0'] = '3.0e+20_gp40'
+    dust_mask['4.0'] = '4.0e+20_gp40'
+
+    return dust_mask
 
 
 
@@ -325,7 +427,8 @@ def defaultClassyParams():
     p14_dict['k_pivot'] = 0.05
     p14_dict['tau_reio'] = 0.0925
     p14_dict['N_ncdm'] = 1
-    p14_dict['N_ur'] = 0.00641
+    p14_dict['omega_ncdm'] = 0.00064
+    p14_dict['N_ur'] = 2.0328
     p14_dict['deg_ncdm'] = 3
     p14_dict['m_ncdm'] = 0.02
     p14_dict['T_ncdm'] = 0.71611
@@ -341,7 +444,7 @@ def defaultClassyParams():
     p_hm_dict['pressure_profile_epsabs'] = 1.e-8
     p_hm_dict['pressure_profile_epsrel'] = 1.e-3
     # HOD parameters for CIB
-    p_hm_dict['M_min_HOD'] = pow(10.,10)  # was M_min_HOD_cib
+    p_hm_dict['M_min_HOD_cib'] = pow(10.,10)  # was M_min_HOD_cib
 
     #Grid Parameters
     # Mass bounds
@@ -380,7 +483,9 @@ def defaultClassyParams():
 
 
 
-def getClassyKappa(params={}):
+def getClassyKappa(params={},
+                   pop_params={}, 
+                   save_to_yaml= False):
     """
     Return kappa auto spectrum from classy_sz.
 
@@ -388,6 +493,10 @@ def getClassyKappa(params={}):
     ----------
     params : dict, optional
         Any parameters you want to pass to classy_sz, by default {}
+    pop_params : dict, optional
+        Names of classy_sz parameters to ignore, by default empty
+    save_to_yaml : bool, optional
+        Save all of the set parameters to a yaml file on niagara project, by default False
 
     Returns
     -------
@@ -437,20 +546,28 @@ def getClassyKappa(params={}):
     #Spectra 
     outspec = {}
     outspec['output'] = 'lens_lens_1h,lens_lens_2h,lens_lens_hf'
-    if 'output' in params.keys():
-        params.pop('output')      # TODO: make general classy_sz function
+    # if 'output' in params.keys():
+    #     params.pop('output')      # TODO: make general classy_sz function
         # outspec['output'] = outspec['output'] + ',' + params.pop('output')      
 
     #Create Class Object
     M = Class()
+    
+    #Pop Parameterss
+    all_params = {**default_params, **outspec}
+    for parameter_name in pop_params:
+        all_params.pop(parameter_name, None) 
 
     #Add Parameters
-    M.set(default_params)
-    M.set(outspec)
-    if params:
-        M.set(params)
+    all_params = {**all_params, **params}
         
+    #Save Parameters in YAML File
+    if save_to_yaml:
+        with open(ym.paths['niagara project'] + 'input_data/kappa_params.yaml', 'w') as yamlfile:
+            yaml.dump(all_params, yamlfile)
+
     #Compute Power Spectra
+    M.set(all_params)
     M.compute()
     Dl_kappa_dict = M.cl_kk()
     ells = np.array(Dl_kappa_dict['ell'])
@@ -472,13 +589,107 @@ def getClassyKappa(params={}):
     return ells, Cls_kappa
 
 
-    
+
+def TranslateClassyCIBNames(params=[]):
+
+    long_names = ['Redshift_evolution_of_dust_temperature',
+                  'Dust_temperature_today_in_Kelvins',
+                  'Emissivity_index_of_sed',
+                  'Power_law_index_of_SED_at_high_frequency',
+                  'Redshift_evolution_of_L_M_normalisation',
+                  'Normalisation_of_L_M_relation_in_[JyMPc2/Msun]',
+                  'Most_efficient_halo_mass_in_Msun',
+                  'Size_of_halo_masses_sourcing_CIB_emission',
+                 ]
+
+    short_names = ['alpha',
+                   'T_o',
+                   'beta',
+                   'gamma',
+                   'delta',
+                   'L_o',
+                   'M_eff',
+                   'var'
+                  ]
+
+    translated_params = []
+    for param in params:
+        if param in long_names:
+            from_list = long_names
+            to_list = short_names
+        elif param in short_names:
+            from_list = short_names
+            to_list = long_names
+        else:
+            raise ValueError(f"{param} is not a vaild parameter name (short or long)")
+
+        idx = from_list.index(param)
+        translated_params.append( to_list[idx] )
+
+    return translated_params
+
+
+
+def getCIBconstraints(dataset='Planck13', constraint_type='mean'):
+    params_cib_dict = {}
+
+    if dataset.lower() == 'planck13':
+        if constraint_type == 'mean':
+            params_cib_dict['Redshift_evolution_of_dust_temperature'] =  0.36
+            params_cib_dict['Dust_temperature_today_in_Kelvins'] = 24.4
+            params_cib_dict['Emissivity_index_of_sed'] = 1.75
+            params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7
+            params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 3.6
+            params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.6
+            params_cib_dict['Normalisation_of_L_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8
+            params_cib_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.5
+
+        elif constraint_type == 'err':
+            params_cib_dict['Redshift_evolution_of_dust_temperature'] = 0.05
+            params_cib_dict['Emissivity_index_of_sed'] = 0.06
+            params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 0.2
+            params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 0.2
+            params_cib_dict['Dust_temperature_today_in_Kelvins'] = 1.9
+            params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 0.1
+            params_cib_dict['Normalisation_of_L_M_relation_in_[JyMPc2/Msun]'] = 1.28e-08
+
+        else:
+            raise ValueError("'constraint_type' must be either 'mean' or 'err'")
+
+
+    elif dataset.lower() == 'viero':      # Viero et al
+        if constraint_type == 'mean':
+            params_cib_dict['Redshift_evolution_of_dust_temperature'] =  0.2
+            params_cib_dict['Dust_temperature_today_in_Kelvins'] = 20.7
+            params_cib_dict['Emissivity_index_of_sed'] = 1.6
+            params_cib_dict['Power_law_index_of_SED_at_high_frequency'] = 1.7   # not in Viero, so using Planck13
+            params_cib_dict['Redshift_evolution_of_L_M_normalisation'] = 2.4
+            params_cib_dict['Most_efficient_halo_mass_in_Msun'] = 10**12.3
+            params_cib_dict['Normalisation_of_L_-_M_relation_in_[JyMPc2/Msun]'] = 6.4e-8    # not in Viero, so using Planck13
+            params_cib_dict['Size_of_halo_masses_sourcing_CIB_emission'] = 0.3
+
+        elif constraint_type == 'err':
+            raise NotImplementedError()
+
+        else:
+            raise ValueError("'constraint_type' must be either 'mean' or 'err'")
+
+
+    else:
+        raise NotImplementedError("Need valid data set name")    
+
+
+    return params_cib_dict
+
+
+
 def getClassyCIB(spectra, 
-                 extra_nu_list,
+                 nu_list= {353, 545, 857},
                  params={}, 
                  pop_params={}, 
                  emulFlag=False, 
-                 save_to_yaml=False):
+                 save_to_yaml=False
+                ):
     """Wrapper for classy_sz calculations of CIB auto and CIB x lensing theory spectra.
 
     Parameters
@@ -493,32 +704,22 @@ def getClassyCIB(spectra,
         Names of classy_sz parameters to ignore, by default empty
     emulFlag : bool, optional
         Use the cosmopower emulators?, by default False
+    save_to_yaml : bool, optional
+        Save all of the set parameters to a yaml file on niagara project, by default False
 
     Returns
     -------
     ells, Cls_dict
-        Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string (i.e. 'freq' for the auto and 'freqxfreq' for the cross).
+        Array of ells and a dictionary of Cls. The keys are 'auto' and 'cross', and each of those entries is itself a dictionary indexed by observing frequency as a string (i.e. 'freq' for the cross and 'freqxfreq' for the auto).
     """
 
     #Get Default Parameters
     default_params = defaultClassyParams()
 
     #CIB Parameters
-    p_CIB_dict = {}
-    # p_CIB_dict['Redshift evolution of dust temperature'] =  0.36
-    p_CIB_dict['alpha'] =  0.36
-    p_CIB_dict['Dust temperature today in Kelvins'] = 24.4
-    p_CIB_dict['Emissivity index of sed'] = 1.75
-    p_CIB_dict['Power law index of SED at high frequency'] = 1.7
-    p_CIB_dict['Redshift evolution of L - M normalisation'] = 3.6
-    p_CIB_dict['Most efficient halo mass in Msun'] = 10**12.6
-    p_CIB_dict['Normalisation of L - M relation in [Jy MPc2/Msun]'] = 6.4e-8
-    p_CIB_dict['Size of of halo masses sourcing CIB emission'] = 0.5
+    p_CIB_dict = getCIBconstraints()
 
     #Establish CIB Frequencies
-    nu_list = {353, 545, 857}
-    for freq in extra_nu_list:
-        nu_list.add(freq) 
     nu_list_str = str(nu_list)[1:-1]  # Note: this must be a single string, not a list of strings!
 
     #Frequency Parameters
@@ -571,14 +772,15 @@ def getClassyCIB(spectra,
         outspec.append('cib_cib_1h,cib_cib_2h')
     if spectra.lower() == 'both' or spectra == 'cross':
         outspec.append('lens_cib_1h,lens_cib_2h')
-    M.set({'output': ','.join(outspec)})
+    outspec_dict = {'output': ','.join(outspec)}
 
     #Add Parameters
-    all_params = {**default_params, **p_freq_dict, **p_CIB_dict}
+    all_params = {**default_params, **p_freq_dict, **p_CIB_dict, **outspec_dict}
     for parameter_name in pop_params:
         all_params.pop(parameter_name, None) 
     all_params = {**all_params, **params}
     M.set(all_params)
+    # import pdb; pdb.set_trace()
 
     #Save Parameters in YAML File
     if save_to_yaml:
@@ -589,6 +791,8 @@ def getClassyCIB(spectra,
     if emulFlag:
         M.compute_class_szfast()
     else:
+        print("Running class_sz calculations...")
+        sys.stdout.flush()
         M.compute()
     
     #Extract Spectra
@@ -597,6 +801,14 @@ def getClassyCIB(spectra,
         Dl_spectra['auto'] = M.cl_cib_cib()
     if spectra.lower() == 'both' or spectra == 'cross':
         Dl_spectra['cross'] = M.cl_lens_cib()
+
+    #Debugging
+    # debug_ell = np.asarray(Dl_spectra['auto']['545x545']['ell'])
+    # debug_545 = np.asarray(Dl_spectra['auto']['545x545']['1h']) + np.asarray(Dl_spectra['auto']['545x545']['2h'])
+    # debug_data = np.stack([debug_ell, debug_545], axis=1)
+    # print("Saving debugging data...")
+    # sys.stdout.flush()
+    # np.savetxt('/project/r/rbond/ymehta3/debug_545.txt', debug_data)
 
     ells = []
     Cls_dict = {}
@@ -671,25 +883,83 @@ def cl2dl(Cl, ells= None):
 
 
 
-def flux2Tcmb(flux_quantity, freq):
+def flux2Tcmb(flux_quantity, freq, type='map'):
     """
     Convert from Janskys/steradians to micro-Kelvins
-    """
+
+    Parameters
+    ----------
+    flux_quantity : array-like
+        Thing whose units you want to change from flux.
+    freq : float
+        Observing frequency
+    type : str, optional
+        {'map', 'cl'}. By default 'map'
+
+    Returns
+    -------
+    array-like
+        Output object in units of CMB temperature
+
+    Raises
+    ------
+    ValueError
+        Raised if the 'type' parameter wasn't recognized
+    """    
     freq = int(freq) * u.GHz
     equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
 
-    Tcmb_quantity = flux_quantity * (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv)
+    factor = (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv)
+
+    if type == 'map':
+        factor = factor
+    elif type == 'cl':
+        factor = factor**2
+    else:
+        raise ValueError('Invalid "type" argument')
+
+
+    Tcmb_quantity = flux_quantity * factor
 
     return Tcmb_quantity
 
 
-def Tcmb2flux(Tcmb_quantity, freq):
+def Tcmb2flux(Tcmb_quantity, freq, type='map'):
     """
     Convert from micro-Kelvins to Janskys/steradians
-    """
+
+    Parameters
+    ----------
+    flux_quantity : array-like
+        Thing whose units you want to change from flux.
+    freq : float
+        Observing frequency
+    type : str, optional
+        {'map', 'cl'}. By default 'map'
+
+    Returns
+    -------
+    array-like
+        Output object in units of CMB temperature
+
+    Raises
+    ------
+    ValueError
+        Raised if the 'type' parameter wasn't recognized
+    """    
     freq = int(freq) * u.GHz
     equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
-    flux_quantity = Tcmb_quantity * (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv)
+
+    factor = (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv)
+
+    if type == 'map':
+        factor = factor
+    elif type == 'cl':
+        factor = factor**2
+    else:
+        raise ValueError('Invalid "type" argument')
+
+    flux_quantity = Tcmb_quantity * factor
 
     return flux_quantity
 
@@ -714,6 +984,19 @@ def knox_formula_errors(auto1, fsky, ells, delta_ell, auto2 = None, cross = None
 #################################################################################################
 
 def Fields2Cls(probes_list):
+    """
+    Get the names of every unique power spectrum combination possible from given fields.
+
+    Parameters
+    ----------
+    probes_list : list
+        List of names of fields. Their order determines the order of the returned spectra.
+
+    Returns
+    -------
+    list
+        List of names of Cl's. The format is "field1xfield2".
+    """
     #Fields -> Cls Matrix 
     Cls_list = []
     for i, probe1 in enumerate(probes_list):
@@ -725,6 +1008,19 @@ def Fields2Cls(probes_list):
 
 
 def Cls2Indices(Cls_list):
+    """
+    Forms a large, multi-spectrum covmat comprised of individual covmats and returns mapping from the names of these individual covmats to their indices within the larger covmat.
+
+    Parameters
+    ----------
+    Cls_list : list
+        List of names of the power spectra you want the covmat for.
+
+    Returns
+    -------
+    dict
+        Mapping from combinations Cl names to indicies in the covmat. The keys are strings of the format "Cl1,Cl2" (names of each individual covmat) and the values are tuples of the indices for the individual covmat.
+    """    
     #Cls Matrix -> Covmat
     probe_to_indices = {}
     for i, iCl in enumerate(Cls_list):
@@ -735,6 +1031,19 @@ def Cls2Indices(Cls_list):
 
 
 def Fields2Indices(probes_list):
+    """
+    Get the indices corresponding to individual covmats of a large, multi-probe covmat from a list of fields. This mapping provides every possible individual covmats that corresponds to every possible combo of every power spectrum possible from the given fields.
+
+    Parameters
+    ----------
+    probes_list : list
+        List of names of all possible fields.
+
+    Returns
+    -------
+    dict
+        Mapping from combinations Cl names to indicies in the covmat. The keys are strings of the format "Cl1,Cl2" (names of each individual covmat), where "Cl1" and "Cl2" are of the format "field1xfield2", and the values are tuples of the indices for the individual covmat.
+    """
     #Fields -> Cls Matrix 
     Cls_list = Fields2Cls(probes_list)
          
@@ -743,27 +1052,174 @@ def Fields2Indices(probes_list):
 
     return cov_name_to_indices
 
+
+def getCovmatInfo(labels, info):
+    """
+    Given either Cl's or fields, return relevant info for the covmat. This allows the flexibility of specifying the relevent Cl's manually or automatically. 
+
+    Parameters
+    ----------
+    labels : list
+        Names that describe a covmat. Either the names of the power spectra for that covmat explicitly (canonically of the format "Cl1xCl2"), in which case, the names should correspond to the order of individual covmats of the covmat of interest (for instance, when reading left to right across the covmat); or the names of the fields (in this case, it's assumed that the covmat being described is the full covmat corresponding to every possible 4pt combination of the fields).
+    info : str
+        Type of covmat info you want. Options: "Cls" or "indices".
+
+    Returns
+    -------
+    list or dict
+        If you want "Cls", returns list of names of Cl's. If you want "indices", returns the dictionary that maps from Cl combinations to indices (see 'Cls2Indices' for more info).
+    """
+    if 'x' in labels[0]:
+        labels_type = 'Cls'
+    else:
+        labels_type = 'fields'
+
+    #Return Cl's
+    if info.lower() == 'cls':
+        if labels_type == 'Cls':
+            return labels
+        elif labels_type.lower() == 'fields':
+            return Fields2Cls(labels)
+
+    #Return Indices
+    if info.lower() == 'indices':
+        if labels_type == 'Cls':
+            return Cls2Indices(labels)
+        elif labels_type == 'fields':
+            return Fields2Indices(labels)
+
+
     
-def getIndividualCovmat(Cl1, Cl2, big_covmat, probes_list):    
-    #Get Conversion Between Probe Name and Covmat Index
-    probes2indices = Fields2Indices(probes_list)
+def getIndividualCovmat(Cl1, Cl2, big_covmat, covmat_labels):    
+    """
+    Get the covmat that corresponds to a single pair of Cl's from a larger covmat.
+
+    Parameters
+    ----------
+    Cl1 : str
+        Name of the first power spectrum that corresponds to the individual covmat.
+    Cl2 : str
+        Name of the second power spectrum that corresponds to the individual covmat.
+    big_covmat : 2darray
+        Array of the larger covmat of covmats containing the individual covmat you're after.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+
+    Returns
+    -------
+    2darray
+        Array corresponding to the individual covmat.
+    """
+    #Get Indices of Individual Covmat
+    index_dict = getCovmatInfo(covmat_labels, 'indices')
+    i, j = index_dict[f'{Cl1},{Cl2}']
     
     #Calculate Length of Individual Covmat
-    N_probes = len(probes_list)
-    N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
+    Cls = getCovmatInfo(covmat_labels, 'cls')
+    N_Cls = len(Cls)
     indiv_covmat_len = int( len(big_covmat) / N_Cls )
     
     #Get Individual Covmat
-    i, j = probes2indices[f'{Cl1},{Cl2}']
     indiv_covmat = big_covmat[i*indiv_covmat_len : (i+1)*indiv_covmat_len  ,  j*indiv_covmat_len : (j+1)*indiv_covmat_len]
 
     return indiv_covmat
 
 
 
+def sliceCovmat(start_Cl1, start_Cl2, end_Cl1, end_Cl2, big_covmat, covmat_labels, return_indices= False):    
+    """
+    Take a 2D slice of a large covmat comprised of individual covmats.
+
+    Parameters
+    ----------
+    start_Cl1 : str
+        Name of the power spectrum corresponding to the starting row of the slicing operation.
+    start_Cl2 : str
+        Name of the power spectrum corresponding to the starting column of the slicing operation.
+    end_Cl1 : str
+        Name of the power spectrum corresponding to the ending row of the slicing operation. Inclusive of this end point.
+    end_Cl2 : str
+        Name of the power spectrum corresponding to the ending column of the slicing operation. Inclusive of this end point.
+    big_covmat : 2darray
+        Array of the larger covmat of covmats containing the individual covmats you're after.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+    return_indices : bool, optional
+        List of the indicies involved. Format: [start_row, start_col, end_row, end_col]. By default False.
+
+    Returns
+    -------
+    2darray (and list, optionally)
+        Sliced array (doesn't have to be symmetric). If "return_indices" is True, will also return the indices used for slicing.
+    """
+    #Get Conversion Between Probe Name and Covmat Index
+    probes2indices = getCovmatInfo(covmat_labels, 'indices')
+    
+    #Calculate Length of Individual Covmat
+    Cls = getCovmatInfo(covmat_labels, 'cls')
+    N_Cls = len(Cls)
+    indiv_covmat_len = int( len(big_covmat) / N_Cls )
+    # N_Cls = N_probes * (N_probes - 1) / 2 + N_probes    # upper triangle + diag
+    
+    #Get Individual Covmat
+    istart, jstart = probes2indices[f'{start_Cl1},{start_Cl2}']
+    iend, jend = probes2indices[f'{end_Cl1},{end_Cl2}']
+    sub_covmat = big_covmat[istart*indiv_covmat_len : (iend+1)*indiv_covmat_len  ,  jstart*indiv_covmat_len : (jend+1)*indiv_covmat_len]
+
+    if return_indices:
+        return sub_covmat, [istart,jstart,iend,jend]
+    else:
+        return sub_covmat
+
+
+
+def selectIndivCovmats(select_Cls_list, big_covmat, covmat_labels):
+    """
+    Create a subcovmat by extracting individual covmats from a big covmat. This can also be used to rearrange the individual covmats of the input big covmat as well (to be clear, this function returns a copy; it doesn't perform the rearrangement in-place).
+
+    Parameters
+    ----------
+    select_Cls_list : list
+        Names of the Cl's that describe the subcovmat you want to create.
+    big_covmat : 2darray
+        Array of the larger covmat of covmats containing the individual covmats you're after.
+    covmat_labels : list
+        Names of either fields or Cl's that describe the "big_covmat" (see "labels" argument of "getCovmatInfo" for more info).
+
+    Returns
+    -------
+    2darray
+        The subcovmat.
+    """
+
+    sub_covmat = None
+    for select_Cl_row in select_Cls_list:
+        
+        sub_covmat_row = None
+        for select_Cl_col in select_Cls_list:
+
+            #Get Individual Covmat
+            indiv_covmat = getIndividualCovmat(select_Cl_row, select_Cl_col, big_covmat, covmat_labels)
+
+            #Add Individual Covmat to the Sub Covmat Row
+            if sub_covmat_row is None:
+                sub_covmat_row = indiv_covmat
+            else:
+                sub_covmat_row = np.concatenate([sub_covmat_row, indiv_covmat], axis=-1)
+
+        #Add Individual Covmat to the Sub Covmat 
+        if sub_covmat is None:
+            sub_covmat = sub_covmat_row
+        else:
+            sub_covmat = np.concatenate([sub_covmat, sub_covmat_row], axis=0)
+
+    return sub_covmat
+
+
+
 def cov2corr(covmat):
     """
-    Converts individual covariance matrix to a correlation matrix. Does not work for a super matrix of covariance matrices.
+    Converts individual covariance matrix to a correlation matrix. 
 
     Parameters
     ----------

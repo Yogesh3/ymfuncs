@@ -28,6 +28,10 @@ def lm2idx(alm):
     return aidx
 
 
+def ellCut(alm_healpy, ellcut):
+    return yalm.lm2idx( yalm.idx2lm(alm_healpy)[:int(ellcut+1), :int(ellcut+1)] )
+
+
 def lm2cl(alm, weights=None, normalize=True):
     """Converts from l,m space to ell space. Weighs down the monopole and ignores NaN's. Takes m-dependent weights.
 
@@ -169,9 +173,9 @@ def getBinning(binned_ells= None):
     
 
 
-def binTheory(spectra, wsp_name):
+def binTheory(spectra, wsp_path):
     wsp = nmt.NmtWorkspace()
-    wsp.read_from(wsp_name)
+    wsp.read_from(wsp_path)
 
     windows = np.squeeze( wsp.get_bandpower_windows() )     # assumes spin 0 fields in wsp spectrum
 
