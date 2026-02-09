@@ -534,13 +534,33 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 def custom_cmap( cmap_name= '', 
                  color_list = []
                ):
+    """
+    Creates a continuous matplotlib colormap from a sequence of finite colors.
+
+    Parameters
+    ----------
+    cmap_name : str, optional
+        Name of predefined color sequence. By default ''.
+    color_list : list, optional
+        Color sequence to make a colormap from. By default [].
+
+    Returns
+    -------
+    Colormap
+        Mpl continuous colormap.
+
+    Raises
+    ------
+    ValueError
+        Warns if you request a colormap name that wasn't pre-defined.
+    """
 
     if cmap_name not in get_predefined_colors() and not color_list:
         raise ValueError("Need either a pre-defined custom cmap name or color values")
 
     #Use Pre-defined Colors
     if cmap_name.lower() == 'planck':
-        color_list = planck_colors_rgb
+        color_list = planck_colors
     elif cmap_name.lower() == 'ibm':
         color_list = ibm_colors
     
@@ -555,14 +575,31 @@ def custom_cmap( cmap_name= '',
 
 
 
-def plot_color_gradients(category, cmap_list):
+def plot_color_gradients(cmap_names_list, title='Colormaps'):
+    """
+    Plot 1D strips of colormaps. Adapted from https://matplotlib.org/stable/gallery/color/colormap_reference.html
+
+    Parameters
+    ----------
+    cmap_names_list : string or list of strings
+        List of names corresponding to either official MPL colormaps or colormaps defined in this library. Can also be a single string (not wrapped in a list) if just looking at 1 colormap.
+    title : str, optional
+        Title for the plots. By default 'Colormaps'.
+    """
+
+    #Allow a Single Cmap Name Without a List
+    if not isinstance(cmap_names_list, list):
+        cmap_names_list = [ cmap_names_list ]
+
     # Create figure and adjust figure height to number of colormaps
-    nrows = len(cmap_list)
+    nrows = len(cmap_names_list)
     figh = 0.35 + 0.15 + (nrows + (nrows - 1) * 0.1) * 0.22
     fig, axs = plt.subplots(nrows=nrows + 1, figsize=(6.4, figh))
     fig.subplots_adjust(top=1 - 0.35 / figh, bottom=0.15 / figh,
                         left=0.2, right=0.99)
-    axs[0].set_title(f'{category} colormaps', fontsize=14)
+    
+    #Set Title
+    axs[0].set_title(f'{title}', fontsize=14)
 
     predefined_colors = get_predefined_colors()
 
@@ -570,7 +607,9 @@ def plot_color_gradients(category, cmap_list):
     gradient = np.linspace(0, 1, 256)
     gradient = np.vstack([gradient, gradient])
 
-    for ax, name in zip(axs, cmap_list):
+
+    for ax, name in zip(axs, cmap_names_list):
+
         #Set Colormap
         if name in predefined_colors:
             colormap = custom_cmap(name)
@@ -587,6 +626,7 @@ def plot_color_gradients(category, cmap_list):
     # Turn off *all* ticks & spines, not just the ones with colormaps.
     for ax in axs:
         ax.set_axis_off()
+
 
 
 
