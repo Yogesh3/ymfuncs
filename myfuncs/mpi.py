@@ -2,6 +2,16 @@ import numpy as np
 import sys
 from mpi4py import MPI 
 
+
+def getMPIBasics():
+    comm = MPI.COMM_WORLD
+    current_rank = comm.Get_rank()
+    Nranks = comm.Get_size()
+
+    return comm, current_rank, Nranks
+
+
+
 def distMPI(total_tasks):
     """
     This is identical to orphics.mpi_distribute. RIP.
@@ -17,9 +27,7 @@ def distMPI(total_tasks):
         The names are self-explanatory except for 'subset', which is the subset of tasks for the particular rank that called the function.
     """    
     #Basics
-    comm = MPI.COMM_WORLD
-    current_rank = comm.Get_rank()
-    Nranks = comm.Get_size()
+    comm, current_rank, Nranks = getMPIBasics()
 
     #Break Up Work
     if len(total_tasks) == 1:
@@ -56,20 +64,75 @@ def calcMPI(Nsims, Nprocs):
 
     #Add ending Indices For Each Rank
     displacement[1:] = np.cumsum(rows_per_rank)
-    displacement[-1] += 1      # so that the final sim is included
+    # displacement[-1] += 1      # so that the final sim is included
     
     return rows_per_rank, displacement
 
 
 
-def Gatherv(comm, rank_data, Ntasks_tot, root_rank=0):
+def numpy2mpi_dtype(numpy_dtype):
+
+
+    if numpy_dtype == np.cdouble:
+        mpi_dtype = MPI.DOUBLE_COMPLEX
+    elif numpy_dtype == np.float_ or numpy_dtype == np.double:
+        mpi_dtype = MPI.DOUBLE
+    elif numpy_dtype == np.int_:
+        mpi_dtype = MPI.LONG
+    elif numpy_dtype == np.intc:
+        mpi_dtype = MPI.INT
+    else:
+        raise NotImplementedError(f"Unimplemented translation between {numpy_dtype} and MPI's datatypes")
+
+    return mpi_dtype
+
+
+
+def ScattervArray(scatter_array_shape, 
+                  indiv_array_shape, 
+                  arr_dtype= np.double, 
+                  root_rank=0
+                 ):
+
+    #Get Rank Information
+    comm, current_rank, Nranks = getMPIBasics()
+
+    #Set MPI Data Types
+    mpi_dtype = numpy2mpi_dtype(arr_dtype)
+
+    #Create Receiving Buffer
+    if current_rank == root_rank:
+        sendvbuff = np.empty( scatter_array_shape + indiv_array_shape , dtype= arr_dtype )
+    else:
+        sendvbuff = None
+
+    #Send Buffer's Memory Info
+    tasks_per_rank, task_displacements = calcMPI(np.prod(scatter_array_shape), Nranks)
+    displacements = np.prod(indiv_array_shape) * task_displacements[:-1]
+    counts = np.prod(indiv_array_shape) * tasks_per_rank
+
+    #Initialize the Flattened Recieve Buffers
+    recvbuff = np.empty( [tasks_per_rank[current_rank]] + indiv_array_shape, dtype= arr_dtype )
+
+    #Scatterv
+    comm.Scatterv([sendvbuff, counts, displacements, mpi_dtype], recvbuff, root= root_rank)
+
+    #Map Flattened Recieve Buffers to Non-Flattened Send Buffer
+    flattened_idx_this_rank = np.arange( task_displacements[current_rank], task_displacements[current_rank+1] )
+    wrapped_idx_this_rank = np.unravel_index(flattened_idx_this_rank, scatter_array_shape)
+
+    return sendvbuff, recvbuff, wrapped_idx_this_rank
+
+
+
+def Gatherv(rank_data, Ntasks_tot, root_rank=0):
     """
-    Wrapper for mpi4py's Gatherv. The main advantage is that this creates the receiving buffer for each rank, including the data type and full buffer size (taking into account the size of each array that each rank computed). This also works with distMPI, without requiring the user to call calcMPI directly.
+    Wrapper for mpi4py's Gatherv. The main advantage is that this creates the receiving buffer for each rank, including the data type and full buffer size (taking into account the size of each array that each rank computed). This also calls calcMPI directly, ensuring that the gathering will sync up with anything you distribute wtih distMPI.
+
+    This is ideal for when you perform independent computations on each rank and then simply want to concatenate them together according to distMPI on the root_rank.
 
     Parameters
     ----------
-    comm : communicator object
-        MPI communicator
     rank_data : ndarray
         Buffer that you're gathering for this rank
     Ntasks_tot : int
@@ -86,8 +149,7 @@ def Gatherv(comm, rank_data, Ntasks_tot, root_rank=0):
         This only works for certain data types
     """
     #Get Rank Information
-    Nranks = comm.Get_size()
-    current_rank = comm.Get_rank()
+    comm, current_rank, Nranks = getMPIBasics()
 
     #Get Send Buffer Information
     indiv_array = rank_data[0]
@@ -95,16 +157,7 @@ def Gatherv(comm, rank_data, Ntasks_tot, root_rank=0):
     indiv_array_dtype = indiv_array.dtype
     
     #Set MPI Data Types
-    if indiv_array_dtype == np.cdouble:
-        mpi_dtype = MPI.DOUBLE_COMPLEX
-    elif indiv_array_dtype == np.double:
-        mpi_dtype = MPI.DOUBLE
-    elif indiv_array_dtype == np.int_:
-        mpi_dtype = MPI.LONG
-    elif indiv_array_dtype == np.intc:
-        mpi_dtype = MPI.INT
-    else:
-        raise NotImplementedError(f"Unimplemented translation between {indiv_array_dtype} and MPI's datatypes")
+    mpi_dtype = numpy2mpi_dtype(indiv_array_dtype)
 
     #Create Receiving Buffer
     if current_rank == root_rank:
@@ -121,6 +174,47 @@ def Gatherv(comm, rank_data, Ntasks_tot, root_rank=0):
     comm.Gatherv(rank_data, [recevbuff, counts, displacements, mpi_dtype], root= root_rank)
 
     return recevbuff
+
+
+
+def SharedScatterArrays(scatter_array_shape, 
+                        indiv_array_shape, 
+                        arr_dtype= np.double, 
+                        root_rank=0
+                       ):
+
+    comm, current_rank, Nranks = getMPIBasics()
+    shared_comm = comm.Split_type(MPI.COMM_TYPE_SHARED)
+    assert MPI.Comm.Compare(comm, shared_comm) == MPI.CONGRUENT, "The shared communicator object doesn't contain the same ranks in the same order as the general communicator"
+
+    #Dtype Info
+    mpi_dtype = numpy2mpi_dtype(arr_dtype)
+    element_size_bytes = mpi_dtype.Get_size()
+
+    #Set Memory Sizes
+    if current_rank == root_rank:
+        shared_arr_nbytes = np.prod(scatter_array_shape + indiv_array_shape) * element_size_bytes
+    else:
+        shared_arr_nbytes = 0
+
+    #Allocate the Memory
+    window = MPI.Win.Allocate_shared(shared_arr_nbytes, element_size_bytes, comm= comm)
+
+    #Get Local Python Pointer (Buffer) to the Shared Memory on Root Rank
+    shared_buffer, dtype_size = window.Shared_query(root_rank)
+    assert dtype_size == element_size_bytes, "Something weird happened with the data types"
+
+    #Create Numpy Array For Shared Memeory from Buffer
+    shared_array = np.ndarray(buffer= shared_buffer, dtype= arr_dtype, shape= scatter_array_shape + indiv_array_shape)
+
+    #Split Up Shared Array Among Ranks
+    tasks_per_rank, task_displacements = calcMPI(np.prod(scatter_array_shape), Nranks)
+
+    #Map Flattened Recieve Buffers to Non-Flattened Send Buffer
+    flattened_idx_this_rank = np.arange( task_displacements[current_rank], task_displacements[current_rank+1] )
+    wrapped_idx_this_rank = np.unravel_index(flattened_idx_this_rank, scatter_array_shape)
+
+    return window, shared_array, wrapped_idx_this_rank
 
 
 
