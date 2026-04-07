@@ -932,7 +932,7 @@ def flux2Tcmb(flux_quantity, freq, type='map'):
     Returns
     -------
     array-like
-        Output object in units of CMB temperature
+        Output object in units of CMB temperature (microKelvins)
 
     Raises
     ------
@@ -942,7 +942,7 @@ def flux2Tcmb(flux_quantity, freq, type='map'):
     freq = int(freq) * u.GHz
     equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
 
-    factor = (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv)
+    factor = (1. * u.Jy / u.sr).to(u.uK, equivalencies=equiv) 
 
     if type == 'map':
         factor = factor
@@ -963,7 +963,7 @@ def Tcmb2flux(Tcmb_quantity, freq, type='map'):
 
     Parameters
     ----------
-    flux_quantity : array-like
+    Tcmb_quantity : array-like
         Thing whose units you want to change from flux.
     freq : float
         Observing frequency
@@ -973,7 +973,7 @@ def Tcmb2flux(Tcmb_quantity, freq, type='map'):
     Returns
     -------
     array-like
-        Output object in units of CMB temperature
+        Output object in units of CMB temperature (microKelvins)
 
     Raises
     ------
@@ -983,7 +983,7 @@ def Tcmb2flux(Tcmb_quantity, freq, type='map'):
     freq = int(freq) * u.GHz
     equiv = u.thermodynamic_temperature(freq, Planck15.Tcmb0)
 
-    factor = (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv)
+    factor = (1. * u.uK).to(u.Jy / u.sr, equivalencies=equiv) 
 
     if type == 'map':
         factor = factor
