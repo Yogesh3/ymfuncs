@@ -133,8 +133,8 @@ def Gatherv(rank_data, Ntasks_tot, root_rank=0):
 
     Parameters
     ----------
-    rank_data : ndarray
-        Buffer that you're gathering for this rank
+    rank_data : list-like
+        Buffer that you're gathering for this rank. This is a sequence of arrays (if an array, the outermost dimension is considered the sequential axis).
     Ntasks_tot : int
         Total number of tasks across all of your ranks combined
 
@@ -152,7 +152,7 @@ def Gatherv(rank_data, Ntasks_tot, root_rank=0):
     comm, current_rank, Nranks = getMPIBasics()
 
     #Get Send Buffer Information
-    indiv_array = rank_data
+    indiv_array = rank_data[0]
     assert isinstance(indiv_array, np.ndarray), f"rank_data argument is {type(indiv_array)}, not ndarray"
     indiv_array_shape = list(indiv_array.shape)
     indiv_array_dtype = indiv_array.dtype
@@ -172,8 +172,7 @@ def Gatherv(rank_data, Ntasks_tot, root_rank=0):
     counts = np.prod(indiv_array_shape) * tasks_per_rank
 
     #Gatherv
-    if current_rank == 0:
-        comm.Gatherv([rank_data], [recevbuff, counts, displacements, mpi_dtype], root= root_rank)
+    comm.Gatherv(rank_data, [recevbuff, counts, displacements, mpi_dtype], root= root_rank)
 
     return recevbuff
 
