@@ -152,7 +152,8 @@ def Gatherv(rank_data, Ntasks_tot, root_rank=0):
     comm, current_rank, Nranks = getMPIBasics()
 
     #Get Send Buffer Information
-    indiv_array = rank_data[0]
+    indiv_array = rank_data
+    assert isinstance(indiv_array, np.ndarray), f"rank_data argument is {type(indiv_array)}, not ndarray"
     indiv_array_shape = list(indiv_array.shape)
     indiv_array_dtype = indiv_array.dtype
     
@@ -171,16 +172,56 @@ def Gatherv(rank_data, Ntasks_tot, root_rank=0):
     counts = np.prod(indiv_array_shape) * tasks_per_rank
 
     #Gatherv
-    comm.Gatherv(rank_data, [recevbuff, counts, displacements, mpi_dtype], root= root_rank)
+    if current_rank == 0:
+        comm.Gatherv([rank_data], [recevbuff, counts, displacements, mpi_dtype], root= root_rank)
 
     return recevbuff
+
+
+
+def createSharedArray( shared_array_shape, 
+                       arr_dtype= np.double, 
+                       root_rank=0,
+                       access_to_all= False
+                     ):
+
+    comm, current_rank, Nranks = getMPIBasics()
+    shared_comm = comm.Split_type(MPI.COMM_TYPE_SHARED)
+    assert MPI.Comm.Compare(comm, shared_comm) == MPI.CONGRUENT, "The shared communicator object doesn't contain the same ranks in the same order as the general communicator"
+
+    #Dtype Info
+    mpi_dtype = numpy2mpi_dtype(arr_dtype)
+    element_size_bytes = mpi_dtype.Get_size()
+
+    #Set Memory Sizes
+    if current_rank == root_rank:
+        shared_arr_nbytes = np.prod(shared_array_shape) * element_size_bytes
+    else:
+        shared_arr_nbytes = 0   
+
+    #Allocate the Memory
+    window = MPI.Win.Allocate_shared(shared_arr_nbytes, element_size_bytes, comm= comm)     # only root rank allocated memory
+
+    #Get Local Python Pointer (Buffer) to the Shared Memory on Root Rank
+    shared_buffer, dtype_size = window.Shared_query(root_rank)
+    assert dtype_size == element_size_bytes, "Something weird happened with the data types"
+
+    #Create Numpy Array For Shared Memeory from Buffer
+    shared_array = np.ndarray(buffer= shared_buffer, dtype= arr_dtype, shape= shared_array_shape)
+
+    #Let All Ranks Access the Shared Memory
+    if access_to_all: 
+        window.Lock_all()
+
+    return window, shared_array
 
 
 
 def SharedScatterArrays(scatter_array_shape, 
                         indiv_array_shape, 
                         arr_dtype= np.double, 
-                        root_rank=0
+                        root_rank=0,
+                        access_to_all= False
                        ):
 
     comm, current_rank, Nranks = getMPIBasics()
@@ -213,6 +254,10 @@ def SharedScatterArrays(scatter_array_shape,
     #Map Flattened Recieve Buffers to Non-Flattened Send Buffer
     flattened_idx_this_rank = np.arange( task_displacements[current_rank], task_displacements[current_rank+1] )
     wrapped_idx_this_rank = np.unravel_index(flattened_idx_this_rank, scatter_array_shape)
+
+    #Let All Ranks Access the Shared Memory
+    if access_to_all: 
+        window.Lock_all()
 
     return window, shared_array, wrapped_idx_this_rank
 
@@ -284,7 +329,7 @@ def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time, thing_type='sim
     tot_time : float
         Running total time
     thing_type : str, optional
-        Name of the type of task (singular), by default 'sims'
+        Name of the type of task (singular), by default 'sim'
 
     Returns
     -------
@@ -349,6 +394,23 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
             mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
 
 
+
 def mpiprint(string):
     print(string)
     sys.stdout.flush()
+
+
+
+def cleanupSharedMemory(window, comm):
+
+    #Flush Writes to Memory
+    window.Sync()
+
+    #Ensure Every Rank is Caught Up
+    comm.Barrier()
+
+    #Revoke All Ranks' Access Except for the Root Rank for this Window
+    window.Unlock_all()
+
+    #Destroy Memory
+    window.Free()
