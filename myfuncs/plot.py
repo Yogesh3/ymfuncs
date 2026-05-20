@@ -765,7 +765,7 @@ def FancyLegend(container,
             labels_tot.append('')
 
         #Add Title to SubLegend
-        if plot_titles: 
+        if show_sublegend_titles: 
             handles_tot.append( mpl.patches.Patch(visible=False) )
             labels_tot.append(label_title)
 
@@ -790,7 +790,7 @@ def FancyLegend(container,
                                    )
 
     #Add Sublegend Titles
-    if plot_titles:
+    if show_sublegend_titles:
         style_legend_titles_by_setting_position(super_legend, bold_sublegend_titles)
 
     return super_legend
