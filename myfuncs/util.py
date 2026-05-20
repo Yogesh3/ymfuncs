@@ -99,9 +99,9 @@ def closest_match(array, reference, return_indices= False):
 
     Parameters
     ----------
-    array : 1darray
+    array : 1d array-like
         Arbitrary array
-    reference : 1darray
+    reference : 1d array-like
         Reference array
     return_indices : bool, optional
         Whether or not to return the reference array indices that correspond to the matched elements. By default, False
@@ -114,8 +114,10 @@ def closest_match(array, reference, return_indices= False):
         List of indices in the reference array that correspond to the matched elements
     """
     #Initializations
-    array = np.array(array)
-    reference = np.array(reference)
+    if not isinstance(array, np.ndarray):
+        array = np.array(array)
+    if not isinstance(reference, np.ndarray):
+        reference = np.array(reference)
     matched_array = []
     matched_indices = []
 
@@ -925,7 +927,7 @@ def flux2Tcmb(flux_quantity, freq, type='map'):
     flux_quantity : array-like
         Thing whose units you want to change from flux.
     freq : float
-        Observing frequency
+        Observing frequency in GHz
     type : str, optional
         {'map', 'cl'}. By default 'map'
 
@@ -966,7 +968,7 @@ def Tcmb2flux(Tcmb_quantity, freq, type='map'):
     Tcmb_quantity : array-like
         Thing whose units you want to change from flux.
     freq : float
-        Observing frequency
+        Observing frequency in GHz
     type : str, optional
         {'map', 'cl'}. By default 'map'
 
