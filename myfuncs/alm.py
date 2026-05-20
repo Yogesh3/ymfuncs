@@ -1,6 +1,6 @@
 import healpy as hp
 import numpy as np
-import pymaster as nmt
+# import pymaster as nmt
 from orphics import maps as orphmaps
 from pixell import enmap
 

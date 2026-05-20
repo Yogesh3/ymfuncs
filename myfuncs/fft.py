@@ -61,7 +61,7 @@ def map2cl(ell_edges,
            mask1= None, 
            pixmap2= None, 
            mask2=None, 
-           apodizeFlag= True, 
+           apodize_percent= 4, 
            return_wfac= False
          ):
 
@@ -83,11 +83,11 @@ def map2cl(ell_edges,
     ffts = [] 
     
     #Apodize
-    if apodizeFlag:
+    if apodize_percent:
         for current_map in maps:
             #Get Apodized Mask
-            taper_percent = 4 # %
-            apod_window, _ = orphmaps.get_taper(current_map.shape, current_map.wcs, taper_percent= taper_percent)
+            # taper_percent = 4 # %
+            apod_window, _ = orphmaps.get_taper(current_map.shape, current_map.wcs, taper_percent= apodize_percent)
 
             #Apply Apodization
             current_map *= apod_window
