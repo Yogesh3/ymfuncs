@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 from matplotlib_inline.backend_inline import set_matplotlib_formats
 set_matplotlib_formats('svg')
 from pixell import enplot, colorize
+import warnings
 import numpy as np
 from myfuncs import util as yutil
 
@@ -617,9 +618,19 @@ def fill_between_cmap(ax, x, y1, y2, cmap='viridis', reverse_colors= False, n_co
         c_base = np.linspace(0, 1, n_colors).reshape(-1, 1)
     C = np.tile(c_base, (1, len(x)))
     
-    # Draw the mesh with smooth shading
-    mesh = ax.pcolormesh(X, Y, C, cmap=cmap, shading='gouraud', **kwargs)
-    
+    #Remove Specific Matplotlib Warning
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        
+        # Draw the mesh
+        mesh = ax.pcolormesh(
+            X, Y, C, 
+            cmap=cmap, 
+            shading='nearest',
+            edgecolors='none', 
+            **kwargs
+        )
+     
     return mesh
 
 
@@ -628,11 +639,12 @@ class ColormapLegendHandler(mpl.legend_handler.HandlerBase):
     """
     Custom legend handler that draws a gradient patch representing a colormap.
     """
-    def __init__(self, cmap, horizontal=True, n_steps=20, **kwargs):
+    def __init__(self, cmap, horizontal=True, n_steps=20, handle_kwargs= None, **kwargs):
         super().__init__(**kwargs)
         self.cmap = plt.get_cmap(cmap)
         self.horizontal = horizontal
         self.n_steps = n_steps # Resolution of the gradient
+        self.handle_kwargs = handle_kwargs
 
     def create_artists(self, legend, orig_handle, 
                        xdescent, ydescent, width, height, fontsize, trans):
@@ -648,13 +660,17 @@ class ColormapLegendHandler(mpl.legend_handler.HandlerBase):
                 x = xdescent + (i / self.n_steps) * width
                 w = width / self.n_steps
                 rect = mpl.patches.Rectangle((x, ydescent), w, height, 
-                                             facecolor=color, edgecolor='none', transform=trans)
+                                             facecolor=color, edgecolor='none', transform=trans,
+                                             **self.handle_kwargs
+                                            )
             else:
                 # Draw horizontal slices moving bottom to top
                 y = ydescent + (i / self.n_steps) * height
                 h = height / self.n_steps
                 rect = mpl.patches.Rectangle((xdescent, y), width, h, 
-                                              facecolor=color, edgecolor='none', transform=trans)
+                                              facecolor=color, edgecolor='none', transform=trans,
+                                             **self.handle_kwargs
+                                            )
                 
             stripes.append(rect)
             
