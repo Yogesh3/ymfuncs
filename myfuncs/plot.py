@@ -624,6 +624,44 @@ def fill_between_cmap(ax, x, y1, y2, cmap='viridis', reverse_colors= False, n_co
 
 
 
+class ColormapLegendHandler(mpl.legend_handler.HandlerBase):
+    """
+    Custom legend handler that draws a gradient patch representing a colormap.
+    """
+    def __init__(self, cmap, horizontal=True, n_steps=20, **kwargs):
+        super().__init__(**kwargs)
+        self.cmap = plt.get_cmap(cmap)
+        self.horizontal = horizontal
+        self.n_steps = n_steps # Resolution of the gradient
+
+    def create_artists(self, legend, orig_handle, 
+                       xdescent, ydescent, width, height, fontsize, trans):
+        
+        stripes = []
+        
+        for i in range(self.n_steps):
+            # Get the color for this fraction of the colormap
+            color = self.cmap(i / (self.n_steps - 1))
+            
+            if self.horizontal:
+                # Draw vertical slices moving left to right
+                x = xdescent + (i / self.n_steps) * width
+                w = width / self.n_steps
+                rect = mpl.patches.Rectangle((x, ydescent), w, height, 
+                                             facecolor=color, edgecolor='none', transform=trans)
+            else:
+                # Draw horizontal slices moving bottom to top
+                y = ydescent + (i / self.n_steps) * height
+                h = height / self.n_steps
+                rect = mpl.patches.Rectangle((xdescent, y), width, h, 
+                                              facecolor=color, edgecolor='none', transform=trans)
+                
+            stripes.append(rect)
+            
+        return stripes
+
+
+
 ######################     Covmat     ############################################
 def plotCovmat(Covmat, covmat_labels,
                Cls_names_to_plot = None,
