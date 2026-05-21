@@ -590,6 +590,37 @@ def plot_color_gradients(category, cmap_list):
 
 
 
+def fill_between_cmap(ax, x, y1, y2, cmap='viridis', n_colors=100, **kwargs):
+    """
+    Fills between two lines with a colormap that dynamically stretches 
+    so the lower line is always the start of the cmap and the upper line is the end.
+    """
+    x = np.asarray(x)
+    if np.isscalar(y1): y1 = np.full_like(x, float(y1))
+    if np.isscalar(y2): y2 = np.full_like(x, float(y2))
+    
+    # Identify which line is strictly on the bottom/top at every point
+    y_lower = np.minimum(y1, y2)
+    y_upper = np.maximum(y1, y2)
+    
+    # Create a vertical grid of Y-values squeezed between the two curves
+    # Shape will be (n_colors, len(x))
+    Y = np.linspace(y_lower, y_upper, n_colors)
+    
+    # Create a matching grid of X-values
+    X = np.tile(x, (n_colors, 1))
+    
+    # Create the color grid and explicitly size it to match X and Y
+    c_base = np.linspace(0, 1, n_colors).reshape(-1, 1)
+    C = np.tile(c_base, (1, len(x)))
+    
+    # Draw the mesh with smooth shading
+    mesh = ax.pcolormesh(X, Y, C, cmap=cmap, shading='gouraud', **kwargs)
+    
+    return mesh
+
+
+
 ######################     Covmat     ############################################
 def plotCovmat(Covmat, covmat_labels,
                Cls_names_to_plot = None,
