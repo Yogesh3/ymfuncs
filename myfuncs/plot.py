@@ -449,7 +449,7 @@ def get_color_cycle(cmap='tab10', N=None, use_index="auto", iterFlag=False, vmin
                 use_index=True
             else:
                 use_index=False
-        cmap = mpl.cm.get_cmap(cmap)
+        cmap = plt.get_cmap(cmap)
 
     if not N:
         N = cmap.N
@@ -535,13 +535,33 @@ def categorical_cmap(nc, nsc, cmap_name="tab10"):
 def custom_cmap( cmap_name= '', 
                  color_list = []
                ):
+    """
+    Creates a continuous matplotlib colormap from a sequence of finite colors.
+
+    Parameters
+    ----------
+    cmap_name : str, optional
+        Name of predefined color sequence. By default ''.
+    color_list : list, optional
+        Color sequence to make a colormap from. By default [].
+
+    Returns
+    -------
+    Colormap
+        Mpl continuous colormap.
+
+    Raises
+    ------
+    ValueError
+        Warns if you request a colormap name that wasn't pre-defined.
+    """
 
     if cmap_name not in get_predefined_colors() and not color_list:
         raise ValueError("Need either a pre-defined custom cmap name or color values")
 
     #Use Pre-defined Colors
     if cmap_name.lower() == 'planck':
-        color_list = planck_colors_rgb
+        color_list = planck_colors
     elif cmap_name.lower() == 'ibm':
         color_list = ibm_colors
     
@@ -556,14 +576,31 @@ def custom_cmap( cmap_name= '',
 
 
 
-def plot_color_gradients(category, cmap_list):
+def plot_color_gradients(cmap_names_list, title='Colormaps'):
+    """
+    Plot 1D strips of colormaps. Adapted from https://matplotlib.org/stable/gallery/color/colormap_reference.html
+
+    Parameters
+    ----------
+    cmap_names_list : string or list of strings
+        List of names corresponding to either official MPL colormaps or colormaps defined in this library. Can also be a single string (not wrapped in a list) if just looking at 1 colormap.
+    title : str, optional
+        Title for the plots. By default 'Colormaps'.
+    """
+
+    #Allow a Single Cmap Name Without a List
+    if not isinstance(cmap_names_list, list):
+        cmap_names_list = [ cmap_names_list ]
+
     # Create figure and adjust figure height to number of colormaps
-    nrows = len(cmap_list)
+    nrows = len(cmap_names_list)
     figh = 0.35 + 0.15 + (nrows + (nrows - 1) * 0.1) * 0.22
     fig, axs = plt.subplots(nrows=nrows + 1, figsize=(6.4, figh))
     fig.subplots_adjust(top=1 - 0.35 / figh, bottom=0.15 / figh,
                         left=0.2, right=0.99)
-    axs[0].set_title(f'{category} colormaps', fontsize=14)
+    
+    #Set Title
+    axs[0].set_title(f'{title}', fontsize=14)
 
     predefined_colors = get_predefined_colors()
 
@@ -571,7 +608,9 @@ def plot_color_gradients(category, cmap_list):
     gradient = np.linspace(0, 1, 256)
     gradient = np.vstack([gradient, gradient])
 
-    for ax, name in zip(axs, cmap_list):
+
+    for ax, name in zip(axs, cmap_names_list):
+
         #Set Colormap
         if name in predefined_colors:
             colormap = custom_cmap(name)
@@ -588,6 +627,175 @@ def plot_color_gradients(category, cmap_list):
     # Turn off *all* ticks & spines, not just the ones with colormaps.
     for ax in axs:
         ax.set_axis_off()
+
+
+
+def nestedCycler(style_dict_list):
+    """
+    Creates cycler object that correspond to nested loops of styles.
+
+    Parameters
+    ----------
+    style_dict_list : list
+        List of dictionaries, with each dictionary specifying a single style that varies across a loop. The keys are mpl kwargs and the values are lists (all of the same length). This allows one to, for instance, vary 3 specific colors AND 3 specific linewidths simultaneously. The order of dictionaries corresponds to the order of nested loops (e.g. the first dictionary corresponds to the slowest loop). 
+
+    Returns
+    -------
+    cycler
+        Cycler that corresponds to the whole nest of loops
+    """
+    total_cycler = 1
+
+    for style_dict in style_dict_list:
+        total_cycler *= mpl.cycler(**style_dict)
+        
+    return total_cycler
+
+
+
+def style_legend_titles_by_setting_position(leg: mpl.legend.Legend, bold: bool = False) -> None:
+    """ Style legend "titles"
+
+    A legend entry can be marked as a title by setting visible=False. Titles
+    get left-aligned and optionally bolded.
+    """
+    # matplotlib.offsetbox.HPacker unconditionally adds a pixel of padding
+    # around each child.
+    # hpacker_padding = 8
+    hpacker_padding_title = 0
+    hpacker_padding_entries = 8
+
+    #Get List of Row HPackers
+    hpacker_of_cols = leg._legend_handle_box
+    first_col_vpacker = hpacker_of_cols.get_children()[0]
+    hpacker_list = first_col_vpacker.get_children()
+
+    for irow, (handle, label) in enumerate( zip(leg.legend_handles, leg.texts) ):
+
+        #Sublegend Entries
+        if handle.get_visible():
+
+            #Save Original "set_offset()" Method
+            og_method = hpacker_list[irow].set_offset
+
+            #Define New Method For This Specific Object
+            def indented_offset(xy, original_method = og_method):
+                """
+                New method to replace the "set_offset" method of OffsetBox objects. 
+                
+                Since VPacker dynamically recaclulates the positions of all its children every time the figure is drawn, calling HPacker.set_offset() manually will get overriden when the legend is drawn/redrawn. It would seem that this function is meant for mpl and not really for users to mess with.
+
+                The solution is to replace the method with a wrapper for the original method (this function, which one would assign as a method).
+
+                Parameters
+                ----------
+                xy : (float, float) or callable
+                    Coordinates (in pixels) of the offset. See OffsetBox docs for more info.
+                original_method : function, optional
+                    Original "set_offset" method, by default og_method
+                """
+                x, y = xy
+                original_method((x + hpacker_padding_entries, y))
+
+            hpacker_list[irow].set_offset = indented_offset
+
+        #Sublegend Titles
+        else:
+            # # See matplotlib.legend.Legend._init_legend_box()
+            widths = [leg.handlelength, leg.handletextpad]
+            # widths = [leg.borderpad, leg.handlelength, leg.handletextpad]
+            offset_points = sum(leg._fontsize * w for w in widths)
+            offset_pixels = leg.figure.canvas.get_renderer().points_to_pixels(offset_points) 
+            offset_pixels -= hpacker_padding_title
+            label.set_position(( -offset_pixels, 0))
+            if bold:
+                label.set_fontweight('bold')
+
+        # else:
+            # widths = [leg.borderpad, leg.handlelength, leg.handletextpad]
+            # offset_points = sum(leg._fontsize * w for w in widths)
+            # offset_pixels = leg.figure.canvas.get_renderer().points_to_pixels(offset_points) 
+            # offset_pixels -= hpacker_padding_entries
+            # label.set_position((hpacker_padding_entries, 0))
+            # handle.xpad((hpacker_padding_entries, 0))
+
+
+
+def FancyLegend(container, 
+                style_dict_list, 
+                label_list_dict, 
+                show_sublegend_titles = False,
+                bold_sublegend_titles = False,
+                **legend_kwargs
+               ):
+
+    """
+    Create a Legend with "Sublegends". Each Sublegend is designed to define styles that correspond to different categories of data (e.g. if you have nested loops).
+
+    Parameters
+    ----------
+    container : axis or figure object
+        Mpl object that contains the legend.
+
+    style_dict_list : list
+        List of dictionaries, with each dictionary specifying a single style that varies across a loop. The keys are mpl kwargs and the values are lists (all of the same length). This allows one to, for instance, vary 3 specific colors AND 3 specific linewidths simultaneously. The order of dictionaries corresponds to the order of nested loops (e.g. the first dictionary corresponds to the slowest loop). 
+        
+    label_list_dict : dictionary
+        Dictionary of labels. The keys are the names of the sublegends. The values are lists of strings that correspond to the labels.
+
+    show_sublegend_titles : bool, optional
+        Do you want to show the sublegend titles? By default False.
+
+    bold_sublegend_titles : bool, optional
+        Do you want the sublegend titles to be bold? By default False.
+
+    Returns
+    -------
+    legend object
+        The final mpl legend.
+    """    
+
+    handles_tot = []
+    labels_tot = []
+
+    for isublegend, (style_dict, (label_title, label_list)) in enumerate( zip( style_dict_list, label_list_dict.items() ) ):
+
+        #Add Space Above SubLegends
+        if isublegend!=0 or 'title' in legend_kwargs.keys():
+            handles_tot.append( mpl.patches.Patch(visible=False) )
+            labels_tot.append('')
+
+        #Add Title to SubLegend
+        if show_sublegend_titles: 
+            handles_tot.append( mpl.patches.Patch(visible=False) )
+            labels_tot.append(label_title)
+
+
+        #Create Styles for SubLegend
+        style_cycler = mpl.cycler(**style_dict)
+
+        #Set Default Color
+        if 'color' not in style_dict.keys():
+            style_cycler = style_cycler * mpl.cycler(color= 'grey')
+
+        #SubLegend
+        for style in style_cycler:
+            handles_tot += [mpl.lines.Line2D([0],[0], **style)]
+        labels_tot += label_list
+
+
+    #Create Legend
+    super_legend = container.legend( handles_tot, 
+                                     labels_tot,
+                                     **legend_kwargs
+                                   )
+
+    #Add Sublegend Titles
+    if show_sublegend_titles:
+        style_legend_titles_by_setting_position(super_legend, bold_sublegend_titles)
+
+    return super_legend
+                    
 
 
 
