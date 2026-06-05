@@ -864,8 +864,8 @@ class ColormapLegendHandler(mpl.legend_handler.HandlerBase):
         
         for i in range(self.n_steps):
             # Get the color for this fraction of the colormap
-            if reverse_colors:
-                color = self.cmap( -i / (self.n_steps - 1))
+            if self.reverse_colors:
+                color = self.cmap( 1 - (i / (self.n_steps - 1) ) )
             else:
                 color = self.cmap(i / (self.n_steps - 1))
             
