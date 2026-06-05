@@ -846,13 +846,16 @@ def fill_between_cmap(ax, x, y1, y2, cmap='viridis', reverse_colors= False, n_co
 class ColormapLegendHandler(mpl.legend_handler.HandlerBase):
     """
     Custom legend handler that draws a gradient patch representing a colormap.
+
+    To use, map a dummy handler to an object of this class. Since matplotlib re-creates the handlers (by running 'create_artist()' on the handler objects) when creating the legend, this mapping must be used. Matplotlib will instead create the artist using the below function, which allows for a cmap.
     """
-    def __init__(self, cmap, horizontal=True, n_steps=20, handle_kwargs= None, **kwargs):
+    def __init__(self, cmap, horizontal=True, n_steps=20, reverse_colors= False, handle_kwargs= None, **kwargs):
         super().__init__(**kwargs)
         self.cmap = plt.get_cmap(cmap)
         self.horizontal = horizontal
         self.n_steps = n_steps # Resolution of the gradient
         self.handle_kwargs = handle_kwargs
+        self.reverse_colors =  reverse_colors
 
     def create_artists(self, legend, orig_handle, 
                        xdescent, ydescent, width, height, fontsize, trans):
@@ -861,7 +864,10 @@ class ColormapLegendHandler(mpl.legend_handler.HandlerBase):
         
         for i in range(self.n_steps):
             # Get the color for this fraction of the colormap
-            color = self.cmap(i / (self.n_steps - 1))
+            if reverse_colors:
+                color = self.cmap( -i / (self.n_steps - 1))
+            else:
+                color = self.cmap(i / (self.n_steps - 1))
             
             if self.horizontal:
                 # Draw vertical slices moving left to right
