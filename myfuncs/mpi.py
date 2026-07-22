@@ -75,7 +75,7 @@ def numpy2mpi_dtype(numpy_dtype):
 
     if numpy_dtype == np.cdouble:
         mpi_dtype = MPI.DOUBLE_COMPLEX
-    elif numpy_dtype == np.float_ or numpy_dtype == np.double:
+    elif numpy_dtype == np.float64 or numpy_dtype == np.double:
         mpi_dtype = MPI.DOUBLE
     elif numpy_dtype == np.int_:
         mpi_dtype = MPI.LONG
@@ -127,7 +127,7 @@ def ScattervArray(scatter_array_shape,
 
 def Gatherv(rank_data, Ntasks_tot, root_rank=0):
     """
-    Wrapper for mpi4py's Gatherv. The main advantage is that this creates the receiving buffer for each rank, including the data type and full buffer size (taking into account the size of each array that each rank computed). This also calls calcMPI directly, ensuring that the gathering will sync up with anything you distribute wtih distMPI.
+    Wrapper for mpi4py's Gatherv. The main advantage is that this creates the receiving buffer for each rank, including the data type and full buffer size (taking into account the size of each array that each rank computed). This also calls calcMPI directly, ensuring that the gathering will sync up with anything you distribute wtih distMPI. That is, you can use distMPI to break up an N-D array in any arbitrary way and the results of this function will be a flattened version of that array (you can just reshape the final result to obtain the desired final shape).
 
     This is ideal for when you perform independent computations on each rank and then simply want to concatenate them together according to distMPI on the root_rank.
 
@@ -216,13 +216,15 @@ def createSharedArray( shared_array_shape,
 
 
 
-def SharedScatterArrays(scatter_array_shape, 
+def scatterSharedArray( scatter_array_shape, 
                         indiv_array_shape, 
                         arr_dtype= np.double, 
                         root_rank=0,
                         access_to_all= False
-                       ):
+                      ):
 
+    # useful if you might want your last dimension to parallelize over to be broken up across multiple ranks. Otherwise, you can use Gatherv to gather a giant list and then reshape that to your final output array shape.
+    
     comm, current_rank, Nranks = getMPIBasics()
     shared_comm = comm.Split_type(MPI.COMM_TYPE_SHARED)
     assert MPI.Comm.Compare(comm, shared_comm) == MPI.CONGRUENT, "The shared communicator object doesn't contain the same ranks in the same order as the general communicator"
@@ -310,7 +312,15 @@ def nanReduce(comm, array, op='mean', root_rank=0):
 
 
 
-def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time, thing_type='sim'):
+def printSimTime(start, 
+                 end, 
+                 rank, 
+                 simnum, 
+                 rank_Nsims, 
+                 tot_time, 
+                 minuteFlag= False,
+                 thing_type='sim'
+                ):
     """Prints time it took to complete a job on each rank and estimate remaining total time assuming that all ranks take the same amount of time (the idea is that you have multiple ranks performing a series of tasks).
 
     Parameters
@@ -338,15 +348,22 @@ def printSimTime(start, end, rank, simnum, rank_Nsims, tot_time, thing_type='sim
     sim_time = end - start 
     tot_time += sim_time
 
-    print(f'\nRank {rank} completed {thing_type} {simnum} / {rank_Nsims} in {sim_time:.0f} seconds.')
+    #Time For One Iteration
+    if not minuteFlag:
+        print(f'\nRank {rank} completed {thing_type} {simnum} / {rank_Nsims} in {sim_time:.0f} seconds.')
+    else:
+        sim_time_min, sim_time_sec = divmod(sim_time, 60)
+        print(f'\nRank {rank} completed {thing_type} {simnum} / {rank_Nsims} in {sim_time_min:.0f} min and {sim_time_sec:.1f} sec.')
+
     sys.stdout.flush()
 
+    #Estimate for Remaining Time
     if simnum != rank_Nsims:
         remaining_time = tot_time * rank_Nsims/simnum - tot_time
         remain_min, remain_sec = divmod(remaining_time, 60)
         remain_sec = round(remain_sec)
 
-        print(f'Approximately {remain_min :.0f} minutes and {remain_sec} seconds remaining.')
+        print(f'Approximately {remain_min :.0f} minutes and {remain_sec:.1f} seconds remaining.')
         sys.stdout.flush()
 
     return tot_time
@@ -388,9 +405,9 @@ def printTotalTime(start, end, hourFlag=False, Nthings=0, thing_type='sims'):
 
         #Print
         if Nthings > 0:
-            mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec for {Nthings} ' + thing_type)
+            mpiprint(f'\nTook {time_hour:.0f} hour, {time_min:.0f}, and {time_sec} sec for {Nthings} ' + thing_type)
         else:
-            mpiprint(f'\nTook {time_hour:.0f} hour and {time_sec} sec')
+            mpiprint(f'\nTook {time_hour:.0f} hour, {time_min:.0f} min, and {time_sec} sec')
 
 
 
@@ -400,13 +417,20 @@ def mpiprint(string):
 
 
 
-def cleanupSharedMemory(window, comm):
+def syncSharedMemory(window, comm):
 
     #Flush Writes to Memory
     window.Sync()
 
     #Ensure Every Rank is Caught Up
     comm.Barrier()
+
+
+
+def cleanupSharedMemory(window, comm):
+
+    #Sync Up Processes
+    syncSharedMemory(window, comm)
 
     #Revoke All Ranks' Access Except for the Root Rank for this Window
     window.Unlock_all()
